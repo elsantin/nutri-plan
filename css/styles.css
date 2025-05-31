@@ -3,18 +3,25 @@
 body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* === CAMBIO: Usar un nombre de archivo genérico para el fondo === */
+    background-image: url('../images/app-background.webp'); /* Nombre genérico */
+    background-repeat: repeat; 
+    /* Considera estas opciones si tu imagen de fondo no es una textura repetible:
+    background-size: cover; 
+    background-attachment: fixed; 
+    background-position: center center;
+    */
 }
 
 /* Estilo para los elementos de la lista de compras marcados como 'comprado' */
 li.comprado label {
     text-decoration: line-through;
-    color: #888;
+    color: #64748B; /* slate-500, un color de la paleta actual para texto secundario */
     opacity: 0.7;
 }
 
 /* Estilos para las vistas (para transiciones, si se implementan) */
 .view {
-    /* Para animaciones de transición entre vistas: */
     /* animation: fadeIn 0.5s ease-in-out; */
 }
 
@@ -25,21 +32,7 @@ li.comprado label {
 
 /* Mejoras de accesibilidad para el foco */
 *:focus-visible {
-  outline: 2px solid theme('colors.primary');
+  outline: 2px solid #A0B2C2; /* ui-primary de la paleta Santuario */
   outline-offset: 2px;
   border-radius: 2px;
 }
-
-/* Estilos para el Plan Semanal Responsivo */
-
-/* Por defecto (Móvil primero):
-   - La tabla está oculta (usamos .hidden de Tailwind en el HTML generado por JS).
-   - Las tarjetas están visibles (usamos .md:hidden en el HTML generado por JS para ocultarlas en desktop).
-*/
-
-/* En el HTML generado por JS:
-   - La tabla tendrá la clase 'hidden md:block'
-   - El contenedor de tarjetas tendrá la clase 'md:hidden'
-   Esto asegura que Tailwind maneje la visibilidad responsiva.
-   No se necesitan estilos adicionales aquí para el display responsivo si se usan las clases de Tailwind directamente.
-*/
