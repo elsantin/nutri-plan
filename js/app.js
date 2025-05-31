@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = 'pwa_nutriplan_db';
-const DB_VERSION = 1; // Incrementar si cambias estructura de stores y manejas la migración
+const DB_VERSION = 1;
 let db; 
 
 console.log('[App Santuario] Script cargado. Iniciando dbPromise...');
@@ -300,6 +300,7 @@ async function renderMealPrep() {
 
     try {
         const currentDB = await dbPromise;
+        console.log('[App Santuario - renderMealPrep] dbPromise resuelta.');
         if (!currentDB) throw new Error("Conexión a BD no disponible.");
 
         const transaction = currentDB.transaction('meal_prep', 'readonly');
@@ -309,10 +310,14 @@ async function renderMealPrep() {
             request.onsuccess = () => resolve(request.result);
             request.onerror = (event) => reject(event.target.error);
         });
+        console.log('[App Santuario - renderMealPrep] Datos obtenidos de IndexedDB:', todasLasTareas);
 
         mealPrepContainer.innerHTML = '';
         if (todasLasTareas.length === 0) {
-            mealPrepContainer.innerHTML = '<p class="text-text-light p-6 text-center bg-white/50 backdrop-blur-md rounded-xl shadow-lg border border-slate-200/40">No hay tareas de preparación programadas. ¡Carga datos de ejemplo desde Inicio!</p>';
+            mealPrepContainer.innerHTML = `
+                <div class="bg-white/50 backdrop-blur-md rounded-xl shadow-lg border border-slate-200/40 p-6 text-center">
+                    <p class="text-text-light">No hay tareas de preparación programadas. ¡Carga datos de ejemplo desde Inicio!</p>
+                </div>`;
             return;
         }
 
@@ -327,28 +332,54 @@ async function renderMealPrep() {
 
         for (const dia of ordenDias) {
             if (tareasAgrupadas[dia] && tareasAgrupadas[dia].length > 0) {
-                const seccionDiaHTML = document.createElement('div');
-                seccionDiaHTML.className = 'mb-6';
+                const seccionDiaDiv = document.createElement('div');
+                seccionDiaDiv.className = 'bg-white/50 backdrop-blur-lg rounded-xl shadow-xl border border-white/20 p-5 mb-6 hover:shadow-2xl transition-shadow duration-300'; 
+                
                 const tituloDia = document.createElement('h3');
-                tituloDia.className = 'text-xl font-semibold text-accent-sapphire mb-3 pb-1 border-b-2 border-primary-subtle';
+                tituloDia.className = 'text-xl font-semibold text-accent-sapphire mb-4 pb-2 border-b border-primary-subtle/40';
                 tituloDia.textContent = (dia === 'Semanal' || dia === 'General') ? `Preparación ${dia}` : `Para el ${dia}`;
-                seccionDiaHTML.appendChild(tituloDia);
+                seccionDiaDiv.appendChild(tituloDia);
+
                 const listaTareasHTML = document.createElement('ul');
-                listaTareasHTML.className = 'space-y-2';
+                listaTareasHTML.className = 'space-y-3';
+
                 tareasAgrupadas[dia].forEach(tarea => {
                     const li = document.createElement('li');
-                    li.className = `flex items-center p-3 bg-white/60 backdrop-blur-md rounded-lg shadow-md border border-white/30 transition-opacity duration-300 ${tarea.completada ? 'opacity-50' : ''}`;
-                    const labelClass = tarea.completada ? 'line-through text-text-light' : 'text-text-dark';
+                    li.className = `
+                        flex items-center 
+                        p-3 
+                        bg-white/70 backdrop-blur-sm
+                        rounded-lg 
+                        shadow-md 
+                        border border-white/20
+                        transition-all duration-300 ease-out
+                        hover:bg-white/90 hover:shadow-lg
+                        ${tarea.completada ? 'opacity-60' : ''}
+                    `;
+                    
+                    const labelClass = tarea.completada 
+                        ? 'line-through text-text-light' 
+                        : 'text-text-dark';
+
                     li.innerHTML = `
-                        <input type="checkbox" id="mealprep-${tarea.id}" data-mealprep-id="${tarea.id}" class="form-checkbox h-5 w-5 text-accent-mint rounded-md border-primary-subtle focus:ring-2 focus:ring-accent-mint focus:ring-opacity-50 cursor-pointer" ${tarea.completada ? 'checked' : ''}>
-                        <label for="mealprep-${tarea.id}" class="ml-3 ${labelClass} text-sm flex-grow cursor-pointer">${tarea.descripcion}</label>`;
+                        <input 
+                            type="checkbox" 
+                            id="mealprep-${tarea.id}" 
+                            data-mealprep-id="${tarea.id}" 
+                            class="form-checkbox h-5 w-5 text-accent-mint rounded-md border-primary-subtle focus:ring-2 focus:ring-accent-mint focus:ring-opacity-50 cursor-pointer flex-shrink-0"
+                            ${tarea.completada ? 'checked' : ''}
+                        >
+                        <label for="mealprep-${tarea.id}" class="ml-3.5 ${labelClass} text-sm flex-grow cursor-pointer">
+                            ${tarea.descripcion}
+                        </label>
+                    `;
                     listaTareasHTML.appendChild(li);
                 });
-                seccionDiaHTML.appendChild(listaTareasHTML);
-                mealPrepContainer.appendChild(seccionDiaHTML);
+                seccionDiaDiv.appendChild(listaTareasHTML);
+                mealPrepContainer.appendChild(seccionDiaDiv);
             }
         }
-        console.log('[App Santuario - renderMealPrep] Renderizado completado.');
+        console.log('[App Santuario - renderMealPrep] Renderizado completado con nuevo estilo.');
     } catch (error) {
         console.error('[App Santuario - renderMealPrep] Error:', error);
         if (mealPrepContainer) mealPrepContainer.innerHTML = `<p class="text-red-500 p-4 text-center">No se pudieron cargar las tareas de preparación. ${error.message}</p>`;
@@ -418,7 +449,6 @@ async function loadSampleData() {
         const planStore = transaction.objectStore('plan_semanal');
         const mealPrepStore = transaction.objectStore('meal_prep');
         
-        // Limpiar stores antes de añadir para evitar duplicados en recargas de ejemplo
         await Promise.all([
             new Promise((res,rej) => { const r = listaStore.clear(); r.onsuccess = res; r.onerror = rej; }),
             new Promise((res,rej) => { const r = planStore.clear(); r.onsuccess = res; r.onerror = rej; }),
@@ -446,14 +476,14 @@ async function loadSampleData() {
 }
 
 async function main() {
-    console.log('Iniciando aplicación NutriPlan (Santuario con Glassmorphism en Lista y Plan)...');
+    console.log('Iniciando aplicación NutriPlan (Santuario con Glassmorphism en Lista, Plan y Meal Prep)...');
     
     views = document.querySelectorAll('.view');
     loadSampleDataButton = document.getElementById('load-sample-data-button');
     listaComprasContainer = document.getElementById('lista-compras-container');
     currentYearSpan = document.getElementById('current-year');
     planSemanalContainer = document.getElementById('plan-semanal-container');
-    mealPrepContainer = document.getElementById('meal-prep-container'); // Asegurarse que este se define
+    mealPrepContainer = document.getElementById('meal-prep-container'); 
 
     console.log('[App Santuario - main] Llamando al router...');
     router(); 
@@ -509,6 +539,7 @@ async function main() {
             if (event.target.type === 'checkbox' && event.target.dataset.mealprepId) {
                 const tareaId = event.target.dataset.mealprepId;
                 const listItemElement = event.target.closest('li');
+                console.log(`[App Santuario - main] Checkbox para tarea Meal Prep ${tareaId} cambiado.`);
                 event.target.disabled = true;
                 const result = await toggleEstadoTareaMealPrep(tareaId);
                 if (result.success && listItemElement) {
