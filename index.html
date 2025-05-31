@@ -5,14 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NutriPlan Narváez Yánez</title>
 
-    <meta name="theme-color" content="#4A90E2">
+    <meta name="theme-color" content="#A0B2C2"> 
     <meta name="apple-mobile-web-app-title" content="NutriPlan">
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/png" href="/web-app-manifest-192x192.png" sizes="192x192">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="shortcut icon" href="/favicon.ico">
-
     <link rel="manifest" href="/manifest.json">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -20,61 +19,125 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: { primary: '#4A90E2', secondary: '#50E3C2', accent: '#F5A623', background: '#F7F9FC', textDark: '#333333', textLight: '#FFFFFF' }
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        // Paleta "Santuario Nutricional Digital"
+                        'background': '#F8FAFC', // slate-50 (Blanco Nube/Gris Perla muy claro)
+                        'text-dark': '#334155',  // slate-700 (Gris Grafito)
+                        'text-light': '#64748B', // slate-500 (Gris Medio-Claro para texto secundario)
+                        
+                        'primary-subtle': '#D1E0D1', // Verde Mineral Pálido (para bordes o acentos muy discretos)
+                        'secondary-soft': '#EDEAE0', // Arena Pálida (para fondos de sección suaves, si es necesario)
+
+                        // Acentos principales (usar con moderación)
+                        'accent-mint': '#76D7C4',      // Verde Menta Refinado
+                        'accent-coral': '#FAB9A2',     // Naranja Coral Sutil
+                        'accent-sapphire': '#5C9AFF',  // Azul Zafiro Tenue
+
+                        // Para elementos de UI como el header
+                        'ui-primary': '#A0B2C2', // Azul Niebla (para header, etc.)
+                        'ui-secondary': '#E2E8F0', // slate-200 (un gris muy claro para fondos de elementos UI)
+                    }
                 }
             }
         }
     </script>
+
     <link rel="stylesheet" href="css/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
 </head>
-<body class="bg-background font-sans antialiased">
+<body class="bg-background text-text-dark font-sans antialiased">
+
     <div id="app-container" class="min-h-screen flex flex-col">
-        <header class="bg-primary text-textLight shadow-md sticky top-0 z-50">
-            <nav class="container mx-auto px-4 py-3 flex justify-between items-center">
-                <h1 id="app-title" class="text-xl md:text-2xl font-bold cursor-pointer" data-route="inicio">NutriPlan Narváez Yánez</h1>
-                <div class="space-x-2 md:space-x-4">
-                    <a href="#inicio" class="hover:text-secondary transition-colors duration-300">Inicio</a>
-                    <a href="#plan-semanal" class="hover:text-secondary transition-colors duration-300">Plan Semanal</a>
-                    <a href="#lista-compras" class="hover:text-secondary transition-colors duration-300">Lista de Compras</a>
-                    <a href="#meal-prep" class="hover:text-secondary transition-colors duration-300">Meal Prep</a>
+
+        <header class="bg-ui-secondary text-text-dark shadow-sm sticky top-0 z-50">
+            <nav class="container mx-auto px-4 md:px-6 py-4 flex justify-between items-center">
+                <h1 id="app-title" class="text-2xl md:text-3xl font-semibold text-ui-primary cursor-pointer" data-route="inicio">
+                    NutriPlan
+                </h1>
+                <div class="space-x-3 md:space-x-5">
+                    <a href="#inicio" class="text-base text-text-light hover:text-ui-primary font-medium pb-1 border-b-2 border-transparent hover:border-ui-primary transition-all duration-300">Inicio</a>
+                    <a href="#plan-semanal" class="text-base text-text-light hover:text-ui-primary font-medium pb-1 border-b-2 border-transparent hover:border-ui-primary transition-all duration-300">Plan Semanal</a>
+                    <a href="#lista-compras" class="text-base text-text-light hover:text-ui-primary font-medium pb-1 border-b-2 border-transparent hover:border-ui-primary transition-all duration-300">Lista de Compras</a>
+                    <a href="#meal-prep" class="text-base text-text-light hover:text-ui-primary font-medium pb-1 border-b-2 border-transparent hover:border-ui-primary transition-all duration-300">Meal Prep</a>
                 </div>
             </nav>
         </header>
+
         <main id="main-content" class="flex-grow container mx-auto p-4 md:p-6">
-            <div id="view-inicio" class="view hidden">
-                <h2 class="text-2xl font-semibold text-textDark mb-4">Bienvenido a NutriPlan</h2>
-                <p class="text-gray-700">Planifica tus comidas de forma inteligente y saludable.</p>
-                <button id="load-sample-data-button" class="mt-6 bg-accent hover:bg-opacity-80 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105">
-                    Cargar Datos de Ejemplo
-                </button>
+            
+            <div id="view-inicio" class="view"> 
+                <div class="text-center py-12 md:py-24">
+                    <h2 class="text-4xl lg:text-5xl font-semibold text-text-dark mb-3 tracking-tight">
+                        Bienvenido a NutriPlan
+                    </h2>
+                    <p class="text-lg lg:text-xl text-text-light mb-10 max-w-2xl mx-auto">
+                        Tu asistente personal para una alimentación familiar saludable, deliciosa y organizada.
+                    </p>
+                    <button id="load-sample-data-button" class="
+                        text-white font-semibold py-3 px-10 rounded-lg 
+                        bg-gradient-to-br from-accent-mint via-accent-sapphire to-accent-mint 
+                        hover:shadow-xl
+                        focus:outline-none focus:ring-4 focus:ring-accent-mint focus:ring-opacity-50
+                        transition-all duration-300 ease-in-out
+                        shadow-lg
+                        transform hover:scale-105
+                    ">
+                        Explorar Plan de Ejemplo
+                    </button>
+                </div>
             </div>
+
             <div id="view-plan-semanal" class="view hidden">
-                <h2 class="text-2xl font-semibold text-textDark mb-4">Plan Semanal</h2>
-                <div id="plan-semanal-container"></div>
+                <h2 class="text-2xl font-semibold text-text-dark mb-6 text-center">Plan Semanal</h2>
+                {/* COMENTARIO ESTRATÉGICO: Contenedor para el plan semanal, podría tener fondo glassmorphism */}
+                <div id="plan-semanal-container" class="bg-white/50 backdrop-blur-lg p-4 sm:p-6 rounded-xl shadow-xl border border-slate-200/50">
+                    {/* El contenido (tabla o tarjetas) se generará aquí por JS */}
+                </div>
             </div>
+            
             <div id="view-receta-detalle" class="view hidden">
-                 <h2 class="text-2xl font-semibold text-textDark mb-4">Detalle de Receta</h2>
+                 <h2 class="text-2xl font-semibold text-text-dark mb-4 text-center">Detalle de Receta</h2>
+                {/* Contenido del detalle de la receta */}
             </div>
+            
             <div id="view-lista-compras" class="view hidden">
-                <h2 class="text-2xl font-semibold text-textDark mb-4">Lista de Compras</h2>
-                <ul id="lista-compras-container" class="space-y-2"></ul>
+                <h2 class="text-2xl font-semibold text-text-dark mb-6 text-center">Lista de Compras</h2>
+                <ul id="lista-compras-container" class="space-y-3 max-w-2xl mx-auto">
+                    {/* Los ítems de la lista de compras se renderizarán aquí */}
+                </ul>
             </div>
+
             <div id="view-meal-prep" class="view hidden">
-                <h2 class="text-2xl font-semibold text-textDark mb-4">Preparación de Comidas (Meal Prep)</h2>
+                <h2 class="text-3xl font-semibold text-text-dark mb-6 text-center">Preparación de Comidas</h2>
+                <div id="meal-prep-container" class="space-y-6 max-w-3xl mx-auto">
+                    {/* Las tareas de Meal Prep agrupadas se renderizarán aquí */}
+                </div>
             </div>
-            <div id="view-loading" class="view"><p class="text-lg text-gray-600">Cargando...</p></div>
-            <div id="view-error" class="view hidden"><p class="text-lg text-red-600">Ha ocurrido un error.</p></div>
+
+            <div id="view-loading" class="view hidden">
+                <div class="flex justify-center items-center h-64">
+                    <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-accent-sapphire"></div>
+                    <p class="ml-4 text-lg text-text-light">Cargando...</p>
+                </div>
+            </div>
+            <div id="view-error" class="view hidden">
+                <div class="text-center py-10">
+                    <p class="text-2xl text-red-500 font-semibold">:(</p>
+                    <p class="text-lg text-text-light mt-2">Ha ocurrido un error al cargar el contenido.</p>
+                    <p class="text-sm text-text-light mt-1">Por favor, intenta refrescar la página.</p>
+                </div>
+            </div>
         </main>
-        <footer class="bg-gray-800 text-textLight text-center p-4 mt-auto">
-            <p>&copy; <span id="current-year"></span> NutriPlan Narváez Yánez. Todos los derechos reservados.</p>
+
+        <footer class="bg-text-dark text-background text-center p-8 mt-auto">
+            <p class="text-sm">&copy; <span id="current-year"></span> NutriPlan Narváez Yánez. Todos los derechos reservados.</p>
         </footer>
     </div>
     <script src="js/app.js" type="module"></script>
 </body>
 </html>
-
