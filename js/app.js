@@ -4,14 +4,14 @@
  */
 
 const DB_NAME = 'pwa_nutriplan_db';
-const DB_VERSION = 1;
+const DB_VERSION = 1; // Incrementar si cambias estructura de stores y manejas la migración en onupgradeneeded
 let db; 
 
 console.log('[App Santuario] Script cargado. Iniciando dbPromise...');
 const dbPromise = initDB();
 console.log('[App Santuario] dbPromise iniciado.');
 
-let views, loadSampleDataButton, listaComprasContainer, currentYearSpan, planSemanalContainer, mealPrepContainer;
+let views, loadSampleDataButton, listaComprasContainer, currentYearSpan, planSemanalContainer, mealPrepContainer, recetaDetalleContentWrapper;
 
 function initDB() {
     console.log('[initDB] Intentando abrir conexión...');
@@ -78,10 +78,13 @@ function showView(viewId) {
 }
 
 async function router() {
-    const hash = window.location.hash.substring(1) || 'inicio';
-    console.log(`[App Santuario - Router] Navegando a #${hash}`);
+    const fullHash = window.location.hash.substring(1);
+    const [viewName, param] = fullHash.split('/'); 
+    const currentViewId = viewName || 'inicio';
+
+    console.log(`[App Santuario - Router] Navegando a #${currentViewId}, Param: ${param}`);
     
-    switch (hash) {
+    switch (currentViewId) {
         case 'inicio':
             showView('inicio');
             console.log('[App Santuario - Router] Vista inicio mostrada.');
@@ -101,9 +104,19 @@ async function router() {
             console.log('[App Santuario - Router] Vista meal-prep mostrada, llamando a renderMealPrep...');
             renderMealPrep();
             break;
+        case 'receta-detalle':
+            showView('receta-detalle');
+            if (param) {
+                console.log(`[App Santuario - Router] Llamando a renderRecetaDetalle con ID: ${param}`);
+                renderRecetaDetalle(param);
+            } else {
+                console.warn("[App Santuario - Router] ID de receta no proporcionado para receta-detalle.");
+                if(recetaDetalleContentWrapper) recetaDetalleContentWrapper.innerHTML = '<p class="text-red-500 p-4 text-center">Error: No se especificó una receta.</p>';
+            }
+            break;
         default:
             showView('inicio');
-            console.warn(`[App Santuario - Router] Ruta desconocida "${hash}", mostrando inicio.`);
+            console.warn(`[App Santuario - Router] Ruta desconocida "${fullHash}", mostrando inicio.`);
             break;
     }
 }
@@ -186,17 +199,17 @@ function generarHTMLPlanTabla(plan) {
             <tbody>
                 <tr class="bg-transparent hover:bg-white/20 border-b border-slate-200/20 transition-colors duration-200">
                     <th scope="row" class="px-6 py-4 font-medium whitespace-nowrap">Desayuno</th>
-                    ${plan.map(p => `<td class="px-6 py-4">${p.desayuno.nombre}</td>`).join('')}
+                    ${plan.map(p => `<td class="px-6 py-4"><a href="#receta-detalle/${p.desayuno.id_receta}" class="text-text-dark hover:text-accent-sapphire hover:underline transition-colors duration-200">${p.desayuno.nombre}</a></td>`).join('')}
                      <td></td>
                 </tr>
                 <tr class="bg-transparent hover:bg-white/20 border-b border-slate-200/20 transition-colors duration-200">
                     <th scope="row" class="px-6 py-4 font-medium whitespace-nowrap">Almuerzo</th>
-                    ${plan.map(p => `<td class="px-6 py-4">${p.almuerzo.nombre}</td>`).join('')}
+                    ${plan.map(p => `<td class="px-6 py-4"><a href="#receta-detalle/${p.almuerzo.id_receta}" class="text-text-dark hover:text-accent-sapphire hover:underline transition-colors duration-200">${p.almuerzo.nombre}</a></td>`).join('')}
                      <td></td>
                 </tr>
                 <tr class="bg-transparent hover:bg-white/20 transition-colors duration-200">
                     <th scope="row" class="px-6 py-4 font-medium whitespace-nowrap rounded-bl-lg">Cena</th>
-                    ${plan.map(p => `<td class="px-6 py-4">${p.cena.nombre}</td>`).join('')}
+                    ${plan.map(p => `<td class="px-6 py-4"><a href="#receta-detalle/${p.cena.id_receta}" class="text-text-dark hover:text-accent-sapphire hover:underline transition-colors duration-200">${p.cena.nombre}</a></td>`).join('')}
                     <td class="rounded-br-lg"></td>
                 </tr>
             </tbody>
@@ -212,9 +225,9 @@ function generarHTMLPlanTarjetas(plan) {
             <div class="bg-white/60 backdrop-blur-md rounded-xl shadow-xl p-5 border border-white/30 hover:bg-white/75 hover:shadow-2xl transition-all duration-300 ease-out transform hover:-translate-y-1">
                 <h3 class="text-xl font-semibold capitalize text-accent-sapphire mb-3 pb-2 border-b border-primary-subtle/50">${dia.dia}</h3>
                 <ul class="space-y-2 text-sm text-text-dark">
-                    <li><strong class="text-text-light font-medium">Desayuno:</strong> ${dia.desayuno.nombre}</li>
-                    <li><strong class="text-text-light font-medium">Almuerzo:</strong> ${dia.almuerzo.nombre}</li>
-                    <li><strong class="text-text-light font-medium">Cena:</strong> ${dia.cena.nombre}</li>
+                    <li><strong class="text-text-light font-medium">Desayuno:</strong> <a href="#receta-detalle/${dia.desayuno.id_receta}" class="text-text-dark hover:text-accent-sapphire hover:underline transition-colors duration-200">${dia.desayuno.nombre}</a></li>
+                    <li><strong class="text-text-light font-medium">Almuerzo:</strong> <a href="#receta-detalle/${dia.almuerzo.id_receta}" class="text-text-dark hover:text-accent-sapphire hover:underline transition-colors duration-200">${dia.almuerzo.nombre}</a></li>
+                    <li><strong class="text-text-light font-medium">Cena:</strong> <a href="#receta-detalle/${dia.cena.id_receta}" class="text-text-dark hover:text-accent-sapphire hover:underline transition-colors duration-200">${dia.cena.nombre}</a></li>
                 </ul>
             </div>
         `;
@@ -252,6 +265,103 @@ async function renderPlanSemanal() {
     } catch (error) {
         console.error('[App Santuario - renderPlanSemanal] Error:', error);
         if (planSemanalContainer) planSemanalContainer.innerHTML = `<p class="text-red-500 p-6 text-center">No se pudo cargar el plan semanal. ${error.message}</p>`;
+    }
+}
+
+async function renderRecetaDetalle(recetaId) {
+    if (!recetaDetalleContentWrapper) { console.warn("[App Santuario - renderRecetaDetalle] Contenedor no encontrado."); return; }
+    recetaDetalleContentWrapper.innerHTML = '<p class="text-text-light p-8 text-center text-lg">Cargando detalles de la receta...</p>';
+    console.log(`[App Santuario - renderRecetaDetalle] Esperando dbPromise para receta ID: ${recetaId}`);
+
+    try {
+        const currentDB = await dbPromise;
+        console.log('[App Santuario - renderRecetaDetalle] dbPromise resuelta.');
+        if (!currentDB) throw new Error("Conexión a BD no disponible.");
+
+        const transaction = currentDB.transaction('recetas', 'readonly');
+        const store = transaction.objectStore('recetas');
+        const receta = await new Promise((resolve, reject) => {
+            const request = store.get(recetaId);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = (event) => reject(event.target.error);
+        });
+
+        console.log('[App Santuario - renderRecetaDetalle] Receta obtenida de IndexedDB:', receta);
+
+        if (!receta) {
+            recetaDetalleContentWrapper.innerHTML = `<div class="text-center p-8"><p class="text-text-light text-lg">Receta con ID '${recetaId}' no encontrada.</p> <button onclick="window.location.hash='#plan-semanal'" class="mt-4 text-accent-sapphire hover:text-accent-coral font-medium text-sm flex items-center mx-auto"> <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg> Volver al Plan Semanal</button></div>`;
+            return;
+        }
+
+        const imagenHtml = receta.imagenUrl 
+            ? `<div class="mb-6 md:mb-8 rounded-xl overflow-hidden shadow-xl aspect-video">
+                 <img src="${receta.imagenUrl}" alt="${receta.nombre}" class="w-full h-full object-cover">
+               </div>`
+            : '<div class="mb-6 p-4 bg-ui-secondary rounded-lg text-center text-text-light text-sm">Imagen no disponible</div>';
+
+        let ingredientesHtml = '<ul class="space-y-2.5 mb-8 list-none pl-0 text-text-dark">';
+        receta.ingredientes.forEach(ing => {
+            ingredientesHtml += `
+                <li class="text-sm flex items-center p-3 bg-white/40 backdrop-blur-sm rounded-lg shadow-sm border border-white/20">
+                    <span class="text-accent-mint mr-2 text-lg">▹</span>
+                    <span class="font-medium">${ing.cantidad} ${ing.unidad}</span>&nbsp;de ${ing.nombre}${ing.notas ? ` <em class="text-xs text-text-light ml-1">(${ing.notas})</em>` : ''}
+                </li>`;
+        });
+        ingredientesHtml += '</ul>';
+
+        let instruccionesHtml = '<ol class="space-y-4 text-text-dark">';
+        receta.instrucciones.forEach((paso, index) => {
+            instruccionesHtml += `
+                <li class="text-sm leading-relaxed flex">
+                    <span class="bg-accent-sapphire text-white rounded-full h-6 w-6 flex items-center justify-center font-semibold text-xs mr-3 flex-shrink-0">${index + 1}</span>
+                    <span>${paso}</span>
+                </li>`;
+        });
+        instruccionesHtml += '</ol>';
+        
+        recetaDetalleContentWrapper.innerHTML = `
+            <button onclick="window.history.back()" class="mb-6 text-accent-sapphire hover:text-accent-coral font-medium text-sm flex items-center transition-colors duration-200 group">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1.5 transform group-hover:-translate-x-1 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Volver
+            </button>
+            
+            ${imagenHtml}
+
+            <h2 class="text-3xl md:text-4xl font-semibold text-text-dark mb-2 text-center">${receta.nombre}</h2>
+            <p class="text-text-light mb-8 text-sm text-center italic">${receta.descripcionCorta || ''}</p>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8 text-sm text-center">
+                <div class="bg-white/40 backdrop-blur-sm p-3 rounded-lg shadow-md border border-white/20"><strong class="block text-text-light text-xs uppercase tracking-wider mb-0.5">Porciones</strong> ${receta.porciones}</div>
+                <div class="bg-white/40 backdrop-blur-sm p-3 rounded-lg shadow-md border border-white/20"><strong class="block text-text-light text-xs uppercase tracking-wider mb-0.5">T. Prep</strong> ${receta.tiempoPrep}</div>
+                <div class="bg-white/40 backdrop-blur-sm p-3 rounded-lg shadow-md border border-white/20 col-span-2 sm:col-span-1"><strong class="block text-text-light text-xs uppercase tracking-wider mb-0.5">T. Cocción</strong> ${receta.tiempoCoccion}</div>
+            </div>
+
+            <div class="grid md:grid-cols-5 gap-8">
+                <div class="md:col-span-2 mb-6 md:mb-0">
+                    <h3 class="text-2xl font-semibold text-accent-sapphire mb-4 pb-2 border-b border-primary-subtle/40">Ingredientes</h3>
+                    ${ingredientesHtml}
+                </div>
+
+                <div class="md:col-span-3">
+                    <h3 class="text-2xl font-semibold text-accent-sapphire mb-4 pb-2 border-b border-primary-subtle/40">Preparación</h3>
+                    ${instruccionesHtml}
+                </div>
+            </div>
+
+            ${receta.notasAdicionales ? `
+                <div class="mt-10 pt-6 border-t border-primary-subtle/30">
+                    <h4 class="text-lg font-semibold text-text-dark mb-2">Notas Adicionales:</h4>
+                    <p class="text-sm text-text-light italic leading-relaxed">${receta.notasAdicionales}</p>
+                </div>
+            ` : ''}
+        `;
+        console.log('[App Santuario - renderRecetaDetalle] Renderizado completado con nuevo estilo.');
+
+    } catch (error) {
+        console.error('[App Santuario - renderRecetaDetalle] Error:', error);
+        if (recetaDetalleContentWrapper) recetaDetalleContentWrapper.innerHTML = `<p class="text-red-500 p-6 text-center">No se pudo cargar el detalle de la receta. ${error.message}</p>`;
     }
 }
 
@@ -428,46 +538,62 @@ async function loadSampleData() {
             { id: "sample-lentejas", ingrediente: "Lentejas", cantidad: 0.5, unidad: "kg", comprado: false },
             { id: "sample-aceite-oliva", ingrediente: "Aceite de Oliva", cantidad: 1, unidad: "litro", comprado: false },
         ];
-        const samplePlan = [
-            { dia: "lunes", desayuno: { id_receta: "rec1", nombre: "Avena con Frutas Frescas" }, almuerzo: { id_receta: "rec2", nombre: "Pollo a la Plancha con Ensalada Verde" }, cena: { id_receta: "rec3", nombre: "Crema de Calabacín y Zanahoria" } },
-            { dia: "martes", desayuno: { id_receta: "rec1a", nombre: "Yogurt Griego con Granola y Miel" }, almuerzo: { id_receta: "rec4", nombre: "Lentejas Guisadas con Vegetales" }, cena: { id_receta: "rec5", nombre: "Salmón al Horno con Espárragos" } },
-            { dia: "miércoles", desayuno: { id_receta: "rec1", nombre: "Avena con Frutas Frescas" }, almuerzo: { id_receta: "rec6", nombre: "Pasta Integral con Pesto y Tomates Cherry" }, cena: { id_receta: "rec7", nombre: "Sopa de Pollo Casera" } },
-            { dia: "jueves", desayuno: { id_receta: "rec1a", nombre: "Yogurt Griego con Granola y Miel" }, almuerzo: { id_receta: "rec8", nombre: "Ensalada César con Pollo a la Parrilla" }, cena: { id_receta: "rec9", nombre: "Tortilla de Patatas y Cebolla" } },
-            { dia: "viernes", desayuno: { id_receta: "rec1", nombre: "Avena con Frutas Frescas" }, almuerzo: { id_receta: "rec10", nombre: "Tacos de Pescado con Salsa de Mango" }, cena: { id_receta: "rec11", nombre: "Pizza Casera de Vegetales" } },
+        const sampleRecetas = [ 
+            { id: "rec1-avena-frutas", nombre: "Avena con Frutas Frescas y Nueces", descripcionCorta: "Un desayuno nutritivo y energizante.", porciones: "1", tiempoPrep: "5 min", tiempoCoccion: "5 min", imagenUrl: "images/placeholders/avena-frutas.webp", ingredientes: [{ nombre: "Avena", cantidad: "1/2", unidad: "taza" }], instrucciones: ["Cocinar avena con agua/leche.", "Añadir frutas y nueces."] },
+            { id: "rec2-pollo-ensalada", nombre: "Pollo a la Plancha con Ensalada Verde", descripcionCorta: "Ligero y saludable.", porciones: "1", tiempoPrep: "10 min", tiempoCoccion: "15 min", imagenUrl: "images/placeholders/pollo-ensalada.webp", ingredientes: [{ nombre: "Pechuga de pollo", cantidad: "1", unidad: "unidad" }], instrucciones: ["Cocinar pollo.", "Preparar ensalada."] },
+            { id: "rec3-crema-calabacin", nombre: "Crema de Calabacín y Zanahoria", descripcionCorta: "Reconfortante y nutritiva.", porciones: "2", tiempoPrep: "10 min", tiempoCoccion: "20 min", imagenUrl: "images/placeholders/crema-calabacin.webp", ingredientes: [{ nombre: "Calabacín", cantidad: "2", unidad: "unidades" }], instrucciones: ["Sofreír vegetales.", "Licuar y servir."] },
+            { id: "rec4-lentejas-guisadas", nombre: "Lentejas Guisadas con Vegetales", descripcionCorta: "Plato completo y lleno de sabor.", porciones: "4", tiempoPrep: "15 min", tiempoCoccion: "45 min", imagenUrl: "images/placeholders/lentejas.webp", ingredientes: [{ nombre: "Lentejas", cantidad: "1", unidad: "taza" }], instrucciones: ["Guisar lentejas con vegetales."] },
+            { id: "rec5-salmon-esparragos", nombre: "Salmón al Horno con Espárragos", descripcionCorta: "Elegante, delicioso y muy saludable.", porciones: "2", tiempoPrep: "10 min", tiempoCoccion: "20 min", imagenUrl: "images/placeholders/salmon-esparragos.webp", ingredientes: [{ nombre: "Filete de Salmón", cantidad: "2", unidad: "" }], instrucciones: ["Hornear salmón con espárragos."] },
         ];
+        
+        const samplePlan = [
+            { dia: "lunes", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena con Frutas Frescas" }, almuerzo: { id_receta: "rec2-pollo-ensalada", nombre: "Pollo con Ensalada Verde" }, cena: { id_receta: "rec3-crema-calabacin", nombre: "Crema de Calabacín" } },
+            { dia: "martes", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena con Frutas (otra vez)" }, almuerzo: { id_receta: "rec4-lentejas-guisadas", nombre: "Lentejas Guisadas" }, cena: { id_receta: "rec5-salmon-esparragos", nombre: "Salmón con Espárragos" } },
+            { dia: "miércoles", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena con Frutas Frescas" }, almuerzo: { id_receta: "rec2-pollo-ensalada", nombre: "Pollo con Ensalada Verde" }, cena: { id_receta: "rec4-lentejas-guisadas", nombre: "Resto de Lentejas" } },
+            { dia: "jueves", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena con Frutas (otra vez)" }, almuerzo: { id_receta: "rec5-salmon-esparragos", nombre: "Salmón con Espárragos (Resto)" }, cena: { id_receta: "rec3-crema-calabacin", nombre: "Crema de Calabacín (Resto)" } },
+            { dia: "viernes", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena con Frutas Frescas" }, almuerzo: { id_receta: "rec2-pollo-ensalada", nombre: "Ensalada Grande con Pollo" }, cena: { id_receta: "rec4-lentejas-guisadas", nombre: "Lentejas para variar" } },
+            { dia: "sábado", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Desayuno Especial de Avena" }, almuerzo: { id_receta: "rec5-salmon-esparragos", nombre: "Almuerzo ligero con Salmón" }, cena: { id_receta: "rec2-pollo-ensalada", nombre: "Cena con Pollo" } },
+            { dia: "domingo", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena Familiar" }, almuerzo: { id_receta: "rec4-lentejas-guisadas", nombre: "Gran porción de Lentejas" }, cena: { id_receta: "rec3-crema-calabacin", nombre: "Sopa reconfortante" } }
+        ];
+
         const sampleMealPrep = [
             { id: 'mp-s1', descripcion: 'Lavar y almacenar todas las hojas verdes (lechuga, espinaca).', dia_prep: 'Semanal', completada: false },
             { id: 'mp-s2', descripcion: 'Cocinar 2 tazas de quinoa.', dia_prep: 'Semanal', completada: true },
             { id: 'mp-d1', descripcion: 'Cortar vegetales para ensaladas de Lunes y Martes.', dia_prep: 'Domingo', completada: false },
-            { id: 'mp-d2', descripcion: 'Preparar aderezo para ensaladas.', dia_prep: 'Domingo', completada: false },
-            { id: 'mp-l1', descripcion: 'Descongelar pollo para la cena.', dia_prep: 'Lunes', completada: false },
-            { id: 'mp-m1', descripcion: 'Remojar lentejas para almuerzo del Martes.', dia_prep: 'Lunes', completada: false },
         ];
 
-        const transaction = currentDB.transaction(['lista_compras', 'plan_semanal', 'meal_prep'], 'readwrite');
-        const listaStore = transaction.objectStore('lista_compras');
-        const planStore = transaction.objectStore('plan_semanal');
-        const mealPrepStore = transaction.objectStore('meal_prep');
+        const transaction = currentDB.transaction(['lista_compras', 'plan_semanal', 'meal_prep', 'recetas'], 'readwrite');
+        const stores = {
+            lista_compras: transaction.objectStore('lista_compras'),
+            plan_semanal: transaction.objectStore('plan_semanal'),
+            meal_prep: transaction.objectStore('meal_prep'),
+            recetas: transaction.objectStore('recetas')
+        };
         
         await Promise.all([
-            new Promise((res,rej) => { const r = listaStore.clear(); r.onsuccess = res; r.onerror = rej; }),
-            new Promise((res,rej) => { const r = planStore.clear(); r.onsuccess = res; r.onerror = rej; }),
-            new Promise((res,rej) => { const r = mealPrepStore.clear(); r.onsuccess = res; r.onerror = rej; })
+            new Promise((res,rej) => { const r = stores.lista_compras.clear(); r.onsuccess = res; r.onerror = rej; }),
+            new Promise((res,rej) => { const r = stores.plan_semanal.clear(); r.onsuccess = res; r.onerror = rej; }),
+            new Promise((res,rej) => { const r = stores.meal_prep.clear(); r.onsuccess = res; r.onerror = rej; }),
+            new Promise((res,rej) => { const r = stores.recetas.clear(); r.onsuccess = res; r.onerror = rej; })
         ]);
 
         await Promise.all([
-            ...sampleLista.map(i => new Promise((res, rej) => { const r = listaStore.put(i); r.onsuccess = res; r.onerror = rej; })),
-            ...samplePlan.map(d => new Promise((res, rej) => { const r = planStore.put(d); r.onsuccess = res; r.onerror = rej; })),
-            ...sampleMealPrep.map(t => new Promise((res, rej) => { const r = mealPrepStore.put(t); r.onsuccess = res; r.onerror = rej; }))
+            ...sampleLista.map(i => new Promise((res, rej) => { const r = stores.lista_compras.put(i); r.onsuccess = res; r.onerror = rej; })),
+            ...samplePlan.map(d => new Promise((res, rej) => { const r = stores.plan_semanal.put(d); r.onsuccess = res; r.onerror = rej; })),
+            ...sampleMealPrep.map(t => new Promise((res, rej) => { const r = stores.meal_prep.put(t); r.onsuccess = res; r.onerror = rej; })),
+            ...sampleRecetas.map(r_item => new Promise((res, rej) => { const req = stores.recetas.put(r_item); req.onsuccess = res; req.onerror = rej; }))
         ]);
         
         console.log('[App Santuario - loadSampleData] Datos de ejemplo cargados con éxito en IndexedDB.');
-        alert('Datos de ejemplo (Plan, Lista y Meal Prep) cargados con éxito.');
+        alert('Datos de ejemplo (Plan, Lista, Meal Prep y Recetas) cargados con éxito.');
         
-        const currentHash = window.location.hash.substring(1) || 'inicio';
-        if (currentHash === 'lista-compras') await renderListaCompras();
-        else if (currentHash === 'plan-semanal') await renderPlanSemanal();
-        else if (currentHash === 'meal-prep') await renderMealPrep();
+        const currentFullHash = window.location.hash.substring(1);
+        const [currentViewNameForReload, currentParamForReload] = currentFullHash.split('/');
+        
+        if (currentViewNameForReload === 'lista-compras') await renderListaCompras();
+        else if (currentViewNameForReload === 'plan-semanal') await renderPlanSemanal();
+        else if (currentViewNameForReload === 'meal-prep') await renderMealPrep();
+        else if (currentViewNameForReload === 'receta-detalle' && currentParamForReload) await renderRecetaDetalle(currentParamForReload);
 
     } catch (error) {
         console.error("[App Santuario - loadSampleData] Error:", error);
@@ -476,7 +602,7 @@ async function loadSampleData() {
 }
 
 async function main() {
-    console.log('Iniciando aplicación NutriPlan (Santuario con Glassmorphism en Lista, Plan y Meal Prep)...');
+    console.log('Iniciando aplicación NutriPlan (Santuario con Detalle de Receta y enlaces)...');
     
     views = document.querySelectorAll('.view');
     loadSampleDataButton = document.getElementById('load-sample-data-button');
@@ -484,6 +610,8 @@ async function main() {
     currentYearSpan = document.getElementById('current-year');
     planSemanalContainer = document.getElementById('plan-semanal-container');
     mealPrepContainer = document.getElementById('meal-prep-container'); 
+    recetaDetalleContentWrapper = document.getElementById('receta-detalle-content-wrapper');
+
 
     console.log('[App Santuario - main] Llamando al router...');
     router(); 
