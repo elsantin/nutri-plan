@@ -49,8 +49,6 @@ function initDB() {
         request.onerror = (event) => reject(event.target.error);
         request.onblocked = (event) => {
             console.error('[initDB] Apertura de BD bloqueada. Cierra otras pestañas de NutriPlan.');
-            // COMENTARIO_ESTRATÉGICO: Reemplazar alert con un modal no bloqueante en el futuro.
-            // Por ahora, se mantiene el alert para funcionalidad básica.
             alert("NutriPlan no puede iniciarse porque otra pestaña lo está bloqueando. Por favor, cierra todas las demás pestañas de NutriPlan y refresca esta página.");
             reject(new Error("Apertura de BD bloqueada."));
         };
@@ -104,7 +102,6 @@ async function router() {
 
     switch (currentViewId) {
         case 'inicio':
-            // Contenido estático.
             break;
         case 'plan-semanal':
             await renderPlanSemanal();
@@ -124,17 +121,10 @@ async function router() {
                 console.warn("[Router] ID de receta no proporcionado para receta-detalle.");
             }
             break;
-        // COMENTARIO_ESTRATÉGICO: Nuevo case para la vista "Acerca de".
-        // Por ahora, su contenido es estático en el HTML, así que no necesita una función de renderizado.
         case 'acerca-de':
-            // El contenido es estático en el HTML, no se necesita renderizado JS adicional.
             break;
         default:
             console.warn(`[Router] Ruta desconocida "${currentViewId}", se mantiene la vista actual o de inicio.`);
-            // Opcionalmente, redirigir a #inicio si la ruta es completamente desconocida.
-            // if (!document.getElementById(`view-${currentViewId}`)) {
-            //     window.location.hash = '#inicio';
-            // }
             break;
     }
 }
@@ -402,16 +392,35 @@ async function loadSampleData() {
             { id: "sample-arroz-blanco", ingrediente: "Arroz Blanco", cantidad: 2, unidad: "kg", comprado: false },
             { id: "sample-pechuga-pollo", ingrediente: "Pechuga de Pollo", cantidad: 1.5, unidad: "kg", comprado: false },
             { id: "sample-tomates", ingrediente: "Tomates", cantidad: 1, unidad: "kg", comprado: true },
+            { id: "sample-cebolla", ingrediente: "Cebolla", cantidad: 0.5, unidad: "kg", comprado: false },
+            { id: "sample-avena", ingrediente: "Avena en Hojuelas", cantidad: 1, unidad: "kg", comprado: false },
+            { id: "sample-frutas-varias", ingrediente: "Frutas Varias (Manzana, Cambur, Lechoza)", cantidad: 2, unidad: "kg", comprado: false },
+            { id: "sample-nueces", ingrediente: "Nueces y Almendras", cantidad: 200, unidad: "g", comprado: false },
+            { id: "sample-vegetales-ensalada", ingrediente: "Vegetales para Ensalada (Lechuga, Pepino)", cantidad: 1, unidad: "paq", comprado: false },
         ];
         const sampleRecetas = [
-            { id: "rec1-avena-frutas", nombre: "Avena con Frutas Frescas y Nueces", descripcionCorta: "Un desayuno nutritivo.", porciones: "1", tiempoPrep: "5 min", tiempoCoccion: "5 min", imagenUrl: "images/placeholders/avena-frutas.webp", ingredientes: [{ nombre: "Avena", cantidad: "1/2", unidad: "taza" }], instrucciones: ["Cocinar avena.", "Añadir frutas."] },
-            { id: "rec2-pollo-ensalada", nombre: "Pollo a la Plancha con Ensalada", descripcionCorta: "Ligero y saludable.", porciones: "1", tiempoPrep: "10 min", tiempoCoccion: "15 min", imagenUrl: "images/placeholders/pollo-ensalada.webp", ingredientes: [{ nombre: "Pechuga de pollo", cantidad: "150", unidad: "g" }], instrucciones: ["Cocinar pollo.", "Preparar ensalada."] },
+            { id: "rec1-avena-frutas", nombre: "Avena con Frutas Frescas y Nueces", descripcionCorta: "Un desayuno nutritivo y energético.", porciones: "1", tiempoPrep: "5 min", tiempoCoccion: "5 min", imagenUrl: "images/placeholders/avena-frutas.webp", ingredientes: [{ nombre: "Avena en hojuelas", cantidad: "1/2", unidad: "taza" }, { nombre: "Agua o leche", cantidad: "1", unidad: "taza" }, { nombre: "Frutas picadas (cambur, fresas, manzana)", cantidad: "1", unidad: "taza" }, { nombre: "Nueces o almendras", cantidad: "1", unidad: "puñado" }, {nombre: "Miel o sirope (opcional)", cantidad: "1", unidad: "cdta"}], instrucciones: ["En una olla pequeña, cocina la avena con el agua o leche a fuego medio hasta que espese (unos 5 minutos), revolviendo ocasionalmente.", "Sirve la avena en un tazón.", "Cubre con las frutas picadas, las nueces y un toque de miel si lo deseas."] },
+            { id: "rec2-pollo-ensalada", nombre: "Pollo a la Plancha con Ensalada Fresca", descripcionCorta: "Almuerzo ligero, proteico y saludable.", porciones: "1", tiempoPrep: "10 min", tiempoCoccion: "15 min", imagenUrl: "images/placeholders/pollo-ensalada.webp", ingredientes: [{ nombre: "Pechuga de pollo", cantidad: "150", unidad: "g" }, { nombre: "Mix de lechugas", cantidad: "2", unidad: "tazas" }, { nombre: "Tomate", cantidad: "1/2", unidad: "unidad" }, { nombre: "Pepino", cantidad: "1/4", unidad: "unidad" }, {nombre: "Aceite de oliva", cantidad: "1", unidad: "cda"}, {nombre: "Vinagre balsámico o limón", cantidad: "1", unidad: "cdta"}, {nombre: "Sal y pimienta", cantidad: "al gusto", unidad: ""}], instrucciones: ["Sazona la pechuga de pollo con sal y pimienta.", "Cocina el pollo a la plancha o en un sartén antiadherente caliente durante 6-8 minutos por cada lado, o hasta que esté bien cocido.", "Mientras se cocina el pollo, prepara la ensalada: lava y corta los vegetales.", "En un bol, mezcla las lechugas, el tomate y el pepino. Adereza con aceite de oliva y vinagre o limón.", "Sirve el pollo junto a la ensalada fresca."] },
+            // COMENTARIO_ESTRATÉGICO: Añadimos una tercera receta simple para más variedad
+            { id: "rec3-huevos-revueltos-integral", nombre: "Huevos Revueltos con Pan Integral", descripcionCorta: "Desayuno clásico y rápido.", porciones: "1", tiempoPrep: "3 min", tiempoCoccion: "5 min", imagenUrl: "images/placeholders/huevos-revueltos.webp", ingredientes: [{ nombre: "Huevos", cantidad: "2", unidad: "unidades" }, { nombre: "Pan integral", cantidad: "1", unidad: "rebanada" }, { nombre: "Sal y pimienta", cantidad: "al gusto", unidad: ""}, {nombre: "Aceite de oliva o mantequilla (opcional)", cantidad: "1/2", unidad: "cdta"}], instrucciones: ["Bate los huevos en un tazón con sal y pimienta.", "Calienta un poco de aceite o mantequilla en un sartén a fuego medio (opcional).", "Vierte los huevos batidos en el sartén y cocina, revolviendo suavemente, hasta que alcancen la cocción deseada.", "Tuesta la rebanada de pan integral.", "Sirve los huevos revueltos sobre el pan tostado."] }
         ];
+
+        // COMENTARIO_ESTRATÉGICO: Plan semanal completo para 7 días.
         const samplePlan = [
-            { dia: "lunes", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena con Frutas" }, almuerzo: { id_receta: "rec2-pollo-ensalada", nombre: "Pollo con Ensalada" }, cena: { id_receta: "rec1-avena-frutas", nombre: "Avena (Cena)" } },
+            { dia: "lunes", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena con Frutas" }, almuerzo: { id_receta: "rec2-pollo-ensalada", nombre: "Pollo con Ensalada Fresca" }, cena: { id_receta: "rec3-huevos-revueltos-integral", nombre: "Huevos Revueltos Ligeros" } },
+            { dia: "martes", desayuno: { id_receta: "rec3-huevos-revueltos-integral", nombre: "Huevos con Integral" }, almuerzo: { id_receta: "rec1-avena-frutas", nombre: "Bowl de Avena y Frutas" }, cena: { id_receta: "rec2-pollo-ensalada", nombre: "Ensalada César con Pollo" } },
+            { dia: "miércoles", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena Energética" }, almuerzo: { id_receta: "rec2-pollo-ensalada", nombre: "Pollo a la Parrilla y Vegetales" }, cena: { id_receta: "rec3-huevos-revueltos-integral", nombre: "Tortilla de Huevos" } },
+            { dia: "jueves", desayuno: { id_receta: "rec3-huevos-revueltos-integral", nombre: "Desayuno Proteico" }, almuerzo: { id_receta: "rec1-avena-frutas", nombre: "Avena con Toppings" }, cena: { id_receta: "rec2-pollo-ensalada", nombre: "Pollo y Mix Verde" } },
+            { dia: "viernes", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena Viernes Feliz" }, almuerzo: { id_receta: "rec2-pollo-ensalada", nombre: "Almuerzo Fit de Pollo" }, cena: { id_receta: "rec3-huevos-revueltos-integral", nombre: "Cena Rápida: Huevos" } },
+            { dia: "sábado", desayuno: { id_receta: "rec3-huevos-revueltos-integral", nombre: "Huevos de Sábado" }, almuerzo: { id_receta: "rec1-avena-frutas", nombre: "Súper Avena de Sábado" }, cena: { id_receta: "rec2-pollo-ensalada", nombre: "Pollo Ligero para el Sábado" } },
+            { dia: "domingo", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena Dominical" }, almuerzo: { id_receta: "rec2-pollo-ensalada", nombre: "Pollo Festivo con Ensalada" }, cena: { id_receta: "rec3-huevos-revueltos-integral", nombre: "Huevos para Cerrar Semana" } }
         ];
         const sampleMealPrep = [
-            { id: 'mp-s1', descripcion: 'Lavar y almacenar hojas verdes.', dia_prep: 'Semanal', completada: false },
+            { id: 'mp-s1', descripcion: 'Lavar y desinfectar todas las frutas y vegetales de la semana.', dia_prep: 'Semanal', completada: false },
+            { id: 'mp-s2', descripcion: 'Cocinar una tanda grande de arroz o quinoa para varios almuerzos.', dia_prep: 'Semanal', completada: false },
+            { id: 'mp-s3', descripcion: 'Porcionar nueces y semillas en recipientes pequeños para snacks o toppings.', dia_prep: 'Semanal', completada: true },
+            { id: 'mp-d1', descripcion: 'Picar vegetales para la ensalada del almuerzo del Lunes.', dia_prep: 'Domingo', completada: false },
+            { id: 'mp-d2', descripcion: 'Dejar en remojo la avena para el desayuno del Lunes (opcional).', dia_prep: 'Domingo', completada: false },
         ];
 
         const transaction = currentDB.transaction(['lista_compras', 'plan_semanal', 'meal_prep', 'recetas'], 'readwrite');
@@ -422,22 +431,25 @@ async function loadSampleData() {
             recetas: transaction.objectStore('recetas')
         };
 
+        // Limpiar los almacenes antes de añadir nuevos datos
         await Promise.all([
             new Promise((res,rej) => { const r = stores.lista_compras.clear(); r.onsuccess = res; r.onerror = rej; }),
             new Promise((res,rej) => { const r = stores.plan_semanal.clear(); r.onsuccess = res; r.onerror = rej; }),
             new Promise((res,rej) => { const r = stores.meal_prep.clear(); r.onsuccess = res; r.onerror = rej; }),
             new Promise((res,rej) => { const r = stores.recetas.clear(); r.onsuccess = res; r.onerror = rej; })
         ]);
+        console.log("[loadSampleData] Almacenes limpiados.");
 
+        // Añadir los nuevos datos
         await Promise.all([
             ...sampleLista.map(i => new Promise((res, rej) => { const r = stores.lista_compras.put(i); r.onsuccess = res; r.onerror = rej; })),
             ...samplePlan.map(d => new Promise((res, rej) => { const r = stores.plan_semanal.put(d); r.onsuccess = res; r.onerror = rej; })),
             ...sampleMealPrep.map(t => new Promise((res, rej) => { const r = stores.meal_prep.put(t); r.onsuccess = res; r.onerror = rej; })),
             ...sampleRecetas.map(r_item => new Promise((res, rej) => { const req = stores.recetas.put(r_item); req.onsuccess = res; req.onerror = rej; }))
         ]);
+        console.log("[loadSampleData] Nuevos datos de ejemplo cargados.");
 
-        // COMENTARIO_ESTRATÉGICO: Reemplazar alert con un modal no bloqueante.
-        alert('Datos de ejemplo (Plan, Lista, Meal Prep y Recetas) cargados con éxito.');
+        alert('Datos de ejemplo (Plan Semanal Completo, Lista, Meal Prep y Recetas) cargados con éxito.');
 
         const currentFullHash = window.location.hash.substring(1);
         const [currentViewNameForReload] = currentFullHash.split('/');
@@ -448,7 +460,6 @@ async function loadSampleData() {
 
     } catch (error) {
         console.error("[loadSampleData] Error:", error);
-        // COMENTARIO_ESTRATÉGICO: Reemplazar alert con un modal no bloqueante.
         alert("Error al cargar los datos de ejemplo: " + error.message);
     }
 }
@@ -500,7 +511,6 @@ async function main() {
                     event.target.checked = result.newState;
                 } else if (!result.success) {
                     event.target.checked = !event.target.checked;
-                     // COMENTARIO_ESTRATÉGICO: Reemplazar alert con un modal no bloqueante.
                     alert('Hubo un error al guardar el cambio: ' + (result.message || 'Error desconocido'));
                 }
                 event.target.disabled = false;
@@ -526,7 +536,6 @@ async function main() {
                     event.target.checked = result.newState;
                 } else if (!result.success) {
                     event.target.checked = !event.target.checked;
-                    // COMENTARIO_ESTRATÉGICO: Reemplazar alert con un modal no bloqueante.
                     alert('Hubo un error al guardar el cambio: ' + (result.message || 'Error desconocido'));
                 }
                 event.target.disabled = false;
