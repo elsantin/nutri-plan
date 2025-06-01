@@ -3,36 +3,55 @@
 body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* === CAMBIO: Usar un nombre de archivo genérico para el fondo === */
-    background-image: url('../images/app-background.webp'); /* Nombre genérico */
+    /* COMENTARIO_ESTRATÉGICO: Fondo texturizado para el tema "Santuario Nutricional Digital" */
+    background-image: url('../images/app-background.webp'); 
     background-repeat: repeat; 
-    /* Considera estas opciones si tu imagen de fondo no es una textura repetible:
-    background-size: cover; 
-    background-attachment: fixed; 
-    background-position: center center;
-    */
 }
 
 /* Estilo para los elementos de la lista de compras marcados como 'comprado' */
 li.comprado label {
     text-decoration: line-through;
-    color: #64748B; /* slate-500, un color de la paleta actual para texto secundario */
+    color: #6B7280; /* Tailwind gray-500 (text-light de nuestra paleta) */
     opacity: 0.7;
 }
 
-/* Estilos para las vistas (para transiciones, si se implementan) */
+/* === INICIO: Transición de Fundido con Vistas Superpuestas === */
+
 .view {
-    /* animation: fadeIn 0.5s ease-in-out; */
+    /* COMENTARIO_ESTRATÉGICO:
+       - Todas las vistas ahora son absolutas dentro de su contenedor relativo (main-content).
+       - top: 0, left: 0, width: 100% aseguran que ocupen todo el espacio de main-content.
+       - La transición sigue siendo solo para la opacidad.
+       - height: 100% para que la vista ocupe toda la altura del contenedor main-content.
+    */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%; 
+    transition: opacity 0.3s ease-in-out;
+    opacity: 0; /* Por defecto, todas las vistas están invisibles */
+    pointer-events: none; /* Por defecto, ninguna vista es interactiva */
+    /* COMENTARIO_ESTRATÉGICO: Para evitar que el contenido de una vista invisible
+       afecte el scroll de la vista visible, especialmente si la invisible es más larga. */
+    overflow: hidden; 
 }
 
-/* @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-} */
+.view.active {
+    /* COMENTARIO_ESTRATÉGICO:
+       - La clase 'active' hace la vista visible e interactiva.
+       - No necesita position: relative o z-index aquí si solo una está 'active' a la vez.
+    */
+    opacity: 1;
+    pointer-events: auto;
+    overflow: auto; /* Permitir scroll en la vista activa si es necesario y el contenido excede */
+}
+
+/* === FIN: Transición de Fundido con Vistas Superpuestas === */
 
 /* Mejoras de accesibilidad para el foco */
 *:focus-visible {
-  outline: 2px solid #A0B2C2; /* ui-primary de la paleta Santuario */
+  outline: 2px solid #A5D6A7; /* 'primary' de nuestra paleta */
   outline-offset: 2px;
   border-radius: 2px;
 }
