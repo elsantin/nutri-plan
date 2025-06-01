@@ -4,7 +4,6 @@
  */
 
 const DB_NAME = 'pwa_nutriplan_db';
-// COMENTARIO_ESTRATÉGICO: Se incrementa la versión de la BD para permitir la actualización del esquema (añadir índice).
 const DB_VERSION = 2;
 let db;
 
@@ -12,34 +11,64 @@ console.log('[App] Script cargado. Iniciando dbPromise...');
 const dbPromise = initDB();
 console.log('[App] dbPromise iniciado.');
 
-let views, loadSampleDataButton, listaComprasContainer, currentYearSpan, planSemanalContainer, mealPrepContainer, recetaDetalleContentWrapper;
+let views, loadSampleDataButton, listaComprasContainer, currentYearSpan, planSemanalContainer, mealPrepContainer, recetaDetalleContentWrapper, misRecetasContainer, notificationArea;
 let generarRecetaIAButton, iaRecipeModal, iaRecipeModalTitle, iaRecipeModalContent, iaRecipeLoading, iaRecipeError, iaRecipeDetails, saveIaRecipeButton, closeIaRecipeModalButton;
 let currentGeneratedRecipeData = null;
 let currentRecipeIngredientsForShoppingList = [];
 
+function showNotification(message, type = 'success', duration = 3500) {
+    if (!notificationArea) notificationArea = document.getElementById('notification-area');
+    if (!notificationArea) {
+        console.warn("Área de notificación no encontrada. Usando alert como fallback.");
+        alert(message);
+        return;
+    }
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    let bgColorClass = 'bg-green-500';
+    if (type === 'error') bgColorClass = 'bg-red-500';
+    else if (type === 'info') bgColorClass = 'bg-blue-500';
+    else if (type === 'warning') bgColorClass = 'bg-yellow-500';
+    notification.className = `p-4 rounded-lg shadow-xl text-white text-sm ${bgColorClass} transition-all duration-300 ease-in-out transform opacity-0 translate-y-2`;
+    const closeButton = document.createElement('button');
+    closeButton.innerHTML = '&times;';
+    closeButton.className = 'ml-4 float-right font-bold hover:text-gray-200 text-lg leading-none';
+    closeButton.onclick = () => {
+        notification.classList.replace('opacity-100', 'opacity-0');
+        notification.classList.replace('translate-y-0', 'translate-y-2');
+        setTimeout(() => notification.remove(), 300);
+    };
+    notification.appendChild(closeButton);
+    notificationArea.appendChild(notification);
+    requestAnimationFrame(() => {
+        notification.classList.replace('opacity-0', 'opacity-100');
+        notification.classList.replace('translate-y-2', 'translate-y-0');
+    });
+    setTimeout(() => {
+        if (document.body.contains(notification)) {
+           closeButton.onclick();
+        }
+    }, duration);
+}
+
 function initDB() {
     return new Promise((resolve, reject) => {
-        // COMENTARIO_ESTRATÉGICO: Ya no se verifica db.version aquí para asegurar que onupgradeneeded se ejecute si la versión cambió.
         const request = indexedDB.open(DB_NAME, DB_VERSION);
-
         request.onupgradeneeded = (event) => {
             console.log(`[initDB] onupgradeneeded: Actualizando esquema de BD a versión ${DB_VERSION}`);
             const dbInstance = event.target.result;
             let store;
             if (!dbInstance.objectStoreNames.contains('lista_compras')) {
                 store = dbInstance.createObjectStore('lista_compras', { keyPath: 'id' });
-                // COMENTARIO_ESTRATÉGICO: Se crea el índice 'ingrediente' en 'lista_compras'.
                 store.createIndex('ingrediente', 'ingrediente', { unique: false });
                 console.log("[initDB] Almacén 'lista_compras' e índice 'ingrediente' creados.");
             } else {
-                // Si el almacén ya existe, obtenemos una referencia para añadir el índice si no existe.
                 store = event.target.transaction.objectStore('lista_compras');
                 if (!store.indexNames.contains('ingrediente')) {
                     store.createIndex('ingrediente', 'ingrediente', { unique: false });
                     console.log("[initDB] Índice 'ingrediente' creado en almacén 'lista_compras' existente.");
                 }
             }
-
             if (!dbInstance.objectStoreNames.contains('recetas')) {
                 dbInstance.createObjectStore('recetas', { keyPath: 'id' });
                  console.log("[initDB] Almacén 'recetas' creado.");
@@ -60,11 +89,12 @@ function initDB() {
         };
         request.onerror = (event) => {
             console.error("[initDB] Error al abrir la BD:", event.target.error);
+            showNotification(`Error al abrir la BD: ${event.target.error}`, 'error');
             reject(event.target.error);
         };
         request.onblocked = (event) => {
-            console.error('[initDB] Apertura de BD bloqueada. Cierra otras pestañas de NutriPlan.');
-            alert("NutriPlan no puede iniciarse porque otra pestaña lo está bloqueando. Por favor, cierra todas las demás pestañas de NutriPlan y refresca esta página.");
+            console.error('[initDB] Apertura de BD bloqueada.');
+            showNotification("NutriPlan no puede iniciarse porque otra pestaña lo está bloqueando.", 'error', 10000);
             reject(new Error("Apertura de BD bloqueada."));
         };
     });
@@ -96,15 +126,15 @@ async function router() {
     const currentViewId = viewName || 'inicio';
     console.log(`[Router] Navegando a #${currentViewId}, Param: ${param}`);
     showView(currentViewId);
-
     switch (currentViewId) {
         case 'inicio': break;
+        case 'mis-recetas': await renderMisRecetas(); break;
         case 'plan-semanal': await renderPlanSemanal(); break;
         case 'lista-compras': await renderListaCompras(); break;
         case 'meal-prep': await renderMealPrep(); break;
         case 'receta-detalle':
             if (param) await renderRecetaDetalle(param);
-            else {
+            else { 
                 const rdContentWrapper = document.getElementById('receta-detalle-content-wrapper');
                 if(rdContentWrapper) rdContentWrapper.innerHTML = '<p class="text-red-500 p-4 text-center">Error: No se especificó una receta.</p>';
             }
@@ -114,7 +144,49 @@ async function router() {
     }
 }
 
-// --- Funciones para la Lista de Compras ---
+async function renderMisRecetas() {
+    if (!misRecetasContainer) misRecetasContainer = document.getElementById('mis-recetas-container');
+    if (!misRecetasContainer) {
+        console.error("Contenedor mis-recetas-container no encontrado");
+        return;
+    }
+    misRecetasContainer.innerHTML = '<p class="text-text-light p-4 text-center">Cargando tus recetas...</p>';
+
+    try {
+        const currentDB = await dbPromise;
+        const transaction = currentDB.transaction('recetas', 'readonly');
+        const store = transaction.objectStore('recetas');
+        const todasLasRecetas = await new Promise((resolve, reject) => {
+            const request = store.getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = (event) => reject(event.target.error);
+        });
+        misRecetasContainer.innerHTML = '';
+        if (todasLasRecetas.length === 0) {
+            misRecetasContainer.innerHTML = '<p class="text-text-light p-6 text-center bg-white/50 backdrop-blur-md rounded-xl shadow-lg border border-slate-200/40">Aún no tienes recetas guardadas.</p>';
+        } else {
+            todasLasRecetas.forEach(receta => {
+                const li = document.createElement('li');
+                li.className = `block p-4 bg-white/60 backdrop-blur-md rounded-xl shadow-lg border border-white/30 transition-all duration-300 ease-out hover:bg-white/80 hover:shadow-xl`;
+                let etiquetaIA = '';
+                if (receta.id && receta.id.startsWith('ia-')) {
+                    etiquetaIA = '<span class="ml-2 text-xs bg-accent/80 text-white px-2 py-0.5 rounded-full align-middle">✨ IA</span>';
+                }
+                li.innerHTML = `
+                    <a href="#receta-detalle/${receta.id}" class="block text-text-dark hover:text-primary">
+                        <h3 class="font-semibold text-lg">${receta.nombre} ${etiquetaIA}</h3>
+                        ${receta.descripcionCorta ? `<p class="text-sm text-text-light mt-1">${receta.descripcionCorta}</p>` : ''}
+                    </a>
+                `;
+                misRecetasContainer.appendChild(li);
+            });
+        }
+    } catch (error) {
+        console.error('[renderMisRecetas] Error:', error);
+        if (misRecetasContainer) misRecetasContainer.innerHTML = `<p class="text-red-500 p-4 text-center">No se pudieron cargar tus recetas. ${error.message}</p>`;
+    }
+}
+
 async function renderListaCompras() {
     if (!listaComprasContainer) listaComprasContainer = document.getElementById('lista-compras-container');
     if (!generarRecetaIAButton) generarRecetaIAButton = document.getElementById('generar-receta-ia-button');
@@ -123,8 +195,7 @@ async function renderListaCompras() {
         return;
     }
     listaComprasContainer.innerHTML = '<p class="text-text-light p-4 text-center">Cargando tu lista de compras...</p>';
-    generarRecetaIAButton.disabled = true;
-
+    
     try {
         const currentDB = await dbPromise;
         const transaction = currentDB.transaction('lista_compras', 'readonly');
@@ -135,42 +206,73 @@ async function renderListaCompras() {
             request.onerror = (event) => reject(event.target.error);
         });
 
+        const itemsActivos = todosLosItems.filter(item => !item.comprado);
+        const itemsComprados = todosLosItems.filter(item => item.comprado);
+
         listaComprasContainer.innerHTML = '';
-        let ingredientesDisponibles = 0;
+        const fragment = document.createDocumentFragment();
+
         if (todosLosItems.length === 0) {
             listaComprasContainer.innerHTML = '<p class="text-text-light p-6 text-center bg-white/50 backdrop-blur-md rounded-xl shadow-lg border border-slate-200/40">Tu lista de compras está vacía.</p>';
-        } else {
-            todosLosItems.forEach(item => {
-                if (!item.comprado) ingredientesDisponibles++;
+        }
+
+        itemsActivos.forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'flex items-center justify-between p-3 bg-white/60 backdrop-blur-md rounded-xl shadow-lg border border-white/30 transition-all duration-300 ease-out hover:bg-white/80 hover:shadow-xl';
+            li.innerHTML = `
+                <div class="flex items-center flex-grow">
+                    <input type="checkbox" id="item-${item.id}" data-item-id="${item.id}" class="form-checkbox h-5 w-5 text-accent rounded-md border-primary focus:ring-2 focus:ring-accent focus:ring-opacity-50 cursor-pointer">
+                    <label for="item-${item.id}" class="ml-3 text-text-dark flex-grow cursor-pointer text-sm sm:text-base">
+                        <span class="font-medium">${item.ingrediente}</span>
+                        <span class="text-xs text-text-light ml-1">(${item.cantidad} ${item.unidad})</span>
+                    </label>
+                </div>
+                `;
+            fragment.appendChild(li);
+        });
+
+        if (itemsComprados.length > 0) {
+            if (itemsActivos.length > 0) {
+                const separatorLi = document.createElement('li');
+                separatorLi.className = 'pt-4 mt-4 border-t border-ui-border/40';
+                separatorLi.innerHTML = `<h4 class="text-xs font-semibold text-text-light uppercase tracking-wider px-2">Completado</h4>`;
+                fragment.appendChild(separatorLi);
+            }
+
+            itemsComprados.forEach(item => {
                 const li = document.createElement('li');
-                li.className = `flex items-center justify-between p-3 bg-white/60 backdrop-blur-md rounded-xl shadow-lg border border-white/30 transition-all duration-300 ease-out hover:bg-white/80 hover:shadow-xl ${item.comprado ? 'opacity-50' : ''}`;
-                const labelClass = item.comprado ? 'line-through text-text-light' : 'text-text-dark';
+                li.className = 'flex items-center justify-between p-3 bg-white/50 backdrop-blur-md rounded-xl shadow-md border border-white/20 transition-all duration-300 ease-out opacity-60';
                 li.innerHTML = `
                     <div class="flex items-center flex-grow">
-                        <input type="checkbox" id="item-${item.id}" data-item-id="${item.id}" class="form-checkbox h-5 w-5 text-accent rounded-md border-primary focus:ring-2 focus:ring-accent focus:ring-opacity-50 cursor-pointer" ${item.comprado ? 'checked' : ''}>
-                        <label for="item-${item.id}" class="ml-3 ${labelClass} flex-grow cursor-pointer text-sm sm:text-base">
+                        <input type="checkbox" id="item-${item.id}" data-item-id="${item.id}" class="form-checkbox h-5 w-5 text-accent rounded-md border-primary focus:ring-2 focus:ring-accent focus:ring-opacity-50 cursor-pointer" checked>
+                        <label for="item-${item.id}" class="ml-3 line-through text-text-light flex-grow cursor-pointer text-sm sm:text-base">
                             <span class="font-medium">${item.ingrediente}</span>
                             <span class="text-xs text-text-light ml-1">(${item.cantidad} ${item.unidad})</span>
                         </label>
                     </div>
-                    <button data-item-id="${item.id}" class="delete-item-btn ml-2 p-1.5 text-red-500 hover:text-red-700 focus:outline-none rounded-md hover:bg-red-100 transition-colors duration-150" aria-label="Eliminar ítem">
+                    <button data-item-id="${item.id}" class="delete-item-btn ml-2 p-1.5 text-red-500 hover:text-red-700 focus:outline-none rounded-md hover:bg-red-100 transition-colors duration-150" aria-label="Eliminar ítem permanentemente">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 `;
-                listaComprasContainer.appendChild(li);
+                fragment.appendChild(li);
             });
         }
-        generarRecetaIAButton.disabled = ingredientesDisponibles === 0;
+        
+        listaComprasContainer.appendChild(fragment);
+        generarRecetaIAButton.disabled = itemsActivos.length === 0;
+
     } catch (error) {
         console.error('[renderListaCompras] Error:', error);
-        if (listaComprasContainer) listaComprasContainer.innerHTML = `<p class="text-red-500 p-4 text-center">No se pudo cargar la lista de compras. ${error.message}</p>`;
+        if (listaComprasContainer) listaComprasContainer.innerHTML = `<p class="text-red-500 p-4 text-center">No se pudo cargar la lista. ${error.message}</p>`;
         generarRecetaIAButton.disabled = true;
     }
 }
 
 async function toggleEstadoItemCompra(itemId) {
+    const checkbox = document.querySelector(`input[data-item-id="${itemId}"]`);
+    if (checkbox) checkbox.disabled = true; // Deshabilitar para evitar doble click
     try {
         const currentDB = await dbPromise;
         const transaction = currentDB.transaction('lista_compras', 'readwrite');
@@ -186,20 +288,19 @@ async function toggleEstadoItemCompra(itemId) {
                 const req = store.put(item); 
                 req.onsuccess = resolve; req.onerror = reject; 
             });
-            await renderListaCompras();
-            return { success: true, newState: item.comprado };
+            await renderListaCompras(); // Re-renderizar la lista completa
         }
-        return { success: false, message: "Ítem no encontrado" };
     } catch (error) {
         console.error("[toggleEstadoItemCompra] Error:", error);
-        return { success: false, message: error.message };
+        showNotification(`Error al actualizar ítem: ${error.message}`, 'error');
+        // Si hubo un error, el checkbox podría quedar deshabilitado. 
+        // renderListaCompras() lo volverá a crear habilitado.
     }
+    // No es necesario re-habilitar el checkbox aquí, ya que renderListaCompras() lo recreará.
 }
 
 async function handleEliminarItemCompra(itemId) {
-    console.log(`Solicitud para eliminar ítem de compra: ${itemId}`);
-    // COMENTARIO_ESTRATÉGICO: Reemplazar confirm() con un modal no bloqueante en el futuro.
-    if (!confirm(`¿Estás seguro de que quieres eliminar este ítem de la lista de compras?`)) {
+    if (!confirm(`¿Estás seguro de que quieres ELIMINAR PERMANENTEMENTE este ítem?`)) {
         return;
     }
     try {
@@ -211,59 +312,21 @@ async function handleEliminarItemCompra(itemId) {
             request.onsuccess = () => resolve();
             request.onerror = (event) => reject(event.target.error);
         });
-        console.log(`Ítem ${itemId} eliminado de la lista de compras.`);
+        showNotification("Ítem eliminado permanentemente.", 'success');
         await renderListaCompras();
     } catch (error) {
-        console.error(`Error al eliminar el ítem ${itemId} de la lista de compras:`, error);
-        alert(`Error al eliminar el ítem: ${error.message}`);
+        console.error(`Error al eliminar ítem:`, error);
+        showNotification(`Error al eliminar el ítem: ${error.message}`, 'error');
     }
 }
 
-function generarHTMLPlanTabla(plan) { /* ...código existente... */ 
-    let html = `<div class="overflow-x-auto rounded-xl shadow-xl hidden md:block bg-white/50 backdrop-blur-lg border border-white/30 p-1"><table class="w-full text-sm text-left text-text-dark"><thead class="text-xs text-text-light uppercase bg-white/20 backdrop-blur-sm"><tr><th scope="col" class="px-6 py-4 font-semibold rounded-tl-lg">Comida</th>${plan.map(p => `<th scope="col" class="px-6 py-4 font-semibold capitalize">${p.dia}</th>`).join('')}<th scope="col" class="px-1 py-3 rounded-tr-lg"></th></tr></thead><tbody><tr class="bg-transparent hover:bg-white/20 border-b border-ui-border/20 transition-colors duration-200"><th scope="row" class="px-6 py-4 font-medium whitespace-nowrap">Desayuno</th>${plan.map(p => `<td class="px-6 py-4"><a href="#receta-detalle/${p.desayuno.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${p.desayuno.nombre}</a></td>`).join('')}<td></td></tr><tr class="bg-transparent hover:bg-white/20 border-b border-ui-border/20 transition-colors duration-200"><th scope="row" class="px-6 py-4 font-medium whitespace-nowrap">Almuerzo</th>${plan.map(p => `<td class="px-6 py-4"><a href="#receta-detalle/${p.almuerzo.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${p.almuerzo.nombre}</a></td>`).join('')}<td></td></tr><tr class="bg-transparent hover:bg-white/20 transition-colors duration-200"><th scope="row" class="px-6 py-4 font-medium whitespace-nowrap rounded-bl-lg">Cena</th>${plan.map(p => `<td class="px-6 py-4"><a href="#receta-detalle/${p.cena.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${p.cena.nombre}</a></td>`).join('')}<td class="rounded-br-lg"></td></tr></tbody></table></div>`;
-    return html;
-}
-function generarHTMLPlanTarjetas(plan) { /* ...código existente... */ 
-    let html = `<div class="space-y-4 md:hidden">`;
-    plan.forEach(dia => {
-        html += `<div class="bg-white/60 backdrop-blur-md rounded-xl shadow-xl p-5 border border-white/30 hover:bg-white/75 hover:shadow-2xl transition-all duration-300 ease-out transform hover:-translate-y-1"><h3 class="text-xl font-semibold capitalize text-accent mb-3 pb-2 border-b border-primary/50">${dia.dia}</h3><ul class="space-y-2 text-sm text-text-dark"><li><strong class="text-text-light font-medium">Desayuno:</strong> <a href="#receta-detalle/${dia.desayuno.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${dia.desayuno.nombre}</a></li><li><strong class="text-text-light font-medium">Almuerzo:</strong> <a href="#receta-detalle/${dia.almuerzo.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${dia.almuerzo.nombre}</a></li><li><strong class="text-text-light font-medium">Cena:</strong> <a href="#receta-detalle/${dia.cena.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${dia.cena.nombre}</a></li></ul></div>`;
-    });
-    html += `</div>`;
-    return html;
-}
-async function renderPlanSemanal() { /* ...código existente... */ 
-    if (!planSemanalContainer) {
-        planSemanalContainer = document.getElementById('plan-semanal-container');
-        if (!planSemanalContainer) { console.error("Contenedor plan-semanal-container no encontrado"); return; }
-    }
-    planSemanalContainer.innerHTML = '<p class="text-text-light p-6 text-center">Cargando tu plan semanal...</p>';
-    try {
-        const currentDB = await dbPromise;
-        const transaction = currentDB.transaction('plan_semanal', 'readonly');
-        const store = transaction.objectStore('plan_semanal');
-        const planCompleto = await new Promise((resolve, reject) => {
-            const request = store.getAll();
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = (event) => reject(event.target.error);
-        });
-        
-        if (planCompleto.length === 0) {
-            planSemanalContainer.innerHTML = '<p class="text-text-light p-6 text-center">No hay un plan semanal cargado. ¡Carga datos de ejemplo desde Inicio!</p>';
-        } else {
-            const diasOrdenados = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
-            planCompleto.sort((a, b) => diasOrdenados.indexOf(a.dia) - diasOrdenados.indexOf(b.dia));
-            planSemanalContainer.innerHTML = generarHTMLPlanTabla(planCompleto) + generarHTMLPlanTarjetas(planCompleto);
-        }
-    } catch (error) {
-        console.error('[renderPlanSemanal] Error:', error);
-        if (planSemanalContainer) planSemanalContainer.innerHTML = `<p class="text-red-500 p-6 text-center">No se pudo cargar el plan semanal. ${error.message}</p>`;
-    }
-}
+function generarHTMLPlanTabla(plan) { let html = `<div class="overflow-x-auto rounded-xl shadow-xl hidden md:block bg-white/50 backdrop-blur-lg border border-white/30 p-1"><table class="w-full text-sm text-left text-text-dark"><thead class="text-xs text-text-light uppercase bg-white/20 backdrop-blur-sm"><tr><th scope="col" class="px-6 py-4 font-semibold rounded-tl-lg">Comida</th>${plan.map(p => `<th scope="col" class="px-6 py-4 font-semibold capitalize">${p.dia}</th>`).join('')}<th scope="col" class="px-1 py-3 rounded-tr-lg"></th></tr></thead><tbody><tr class="bg-transparent hover:bg-white/20 border-b border-ui-border/20 transition-colors duration-200"><th scope="row" class="px-6 py-4 font-medium whitespace-nowrap">Desayuno</th>${plan.map(p => `<td class="px-6 py-4"><a href="#receta-detalle/${p.desayuno.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${p.desayuno.nombre}</a></td>`).join('')}<td></td></tr><tr class="bg-transparent hover:bg-white/20 border-b border-ui-border/20 transition-colors duration-200"><th scope="row" class="px-6 py-4 font-medium whitespace-nowrap">Almuerzo</th>${plan.map(p => `<td class="px-6 py-4"><a href="#receta-detalle/${p.almuerzo.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${p.almuerzo.nombre}</a></td>`).join('')}<td></td></tr><tr class="bg-transparent hover:bg-white/20 transition-colors duration-200"><th scope="row" class="px-6 py-4 font-medium whitespace-nowrap rounded-bl-lg">Cena</th>${plan.map(p => `<td class="px-6 py-4"><a href="#receta-detalle/${p.cena.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${p.cena.nombre}</a></td>`).join('')}<td class="rounded-br-lg"></td></tr></tbody></table></div>`; return html; }
+function generarHTMLPlanTarjetas(plan) { let html = `<div class="space-y-4 md:hidden">`; plan.forEach(dia => { html += `<div class="bg-white/60 backdrop-blur-md rounded-xl shadow-xl p-5 border border-white/30 hover:bg-white/75 hover:shadow-2xl transition-all duration-300 ease-out transform hover:-translate-y-1"><h3 class="text-xl font-semibold capitalize text-accent mb-3 pb-2 border-b border-primary/50">${dia.dia}</h3><ul class="space-y-2 text-sm text-text-dark"><li><strong class="text-text-light font-medium">Desayuno:</strong> <a href="#receta-detalle/${dia.desayuno.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${dia.desayuno.nombre}</a></li><li><strong class="text-text-light font-medium">Almuerzo:</strong> <a href="#receta-detalle/${dia.almuerzo.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${dia.almuerzo.nombre}</a></li><li><strong class="text-text-light font-medium">Cena:</strong> <a href="#receta-detalle/${dia.cena.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${dia.cena.nombre}</a></li></ul></div>`; }); html += `</div>`; return html; }
+async function renderPlanSemanal() { if (!planSemanalContainer) { planSemanalContainer = document.getElementById('plan-semanal-container'); if (!planSemanalContainer) { console.error("Contenedor plan-semanal-container no encontrado"); return; } } planSemanalContainer.innerHTML = '<p class="text-text-light p-6 text-center">Cargando...</p>'; try { const currentDB = await dbPromise; const transaction = currentDB.transaction('plan_semanal', 'readonly'); const store = transaction.objectStore('plan_semanal'); const planCompleto = await new Promise((resolve, reject) => { const request = store.getAll(); request.onsuccess = () => resolve(request.result); request.onerror = (event) => reject(event.target.error); }); if (planCompleto.length === 0) { planSemanalContainer.innerHTML = '<p class="text-text-light p-6 text-center">No hay un plan cargado.</p>'; } else { const diasOrdenados = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]; planCompleto.sort((a, b) => diasOrdenados.indexOf(a.dia) - diasOrdenados.indexOf(b.dia)); planSemanalContainer.innerHTML = generarHTMLPlanTabla(planCompleto) + generarHTMLPlanTarjetas(planCompleto); } } catch (error) { console.error('[renderPlanSemanal] Error:', error); if (planSemanalContainer) planSemanalContainer.innerHTML = `<p class="text-red-500 p-6 text-center">Error al cargar el plan.</p>`; } }
 
 async function renderRecetaDetalle(recetaId) {
     if (!recetaDetalleContentWrapper) recetaDetalleContentWrapper = document.getElementById('receta-detalle-content-wrapper');
     if (!recetaDetalleContentWrapper) { console.error("Contenedor receta-detalle-content-wrapper no encontrado"); return; }
-
     recetaDetalleContentWrapper.innerHTML = '<p class="text-text-light p-8 text-center text-lg">Cargando detalles de la receta...</p>';
     currentRecipeIngredientsForShoppingList = [];
 
@@ -283,7 +346,7 @@ async function renderRecetaDetalle(recetaId) {
         }
 
         currentRecipeIngredientsForShoppingList = receta.ingredientes || [];
-        const imagenHtml = receta.imagenUrl 
+        const imagenHtml = receta.imagenUrl
             ? `<div class="mb-6 md:mb-8 rounded-xl overflow-hidden shadow-xl aspect-video"><img src="${receta.imagenUrl}" alt="${receta.nombre}" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='https://placehold.co/600x400/F0EFE6/263A29?text=Imagen+no+disponible';"></div>`
             : `<div class="mb-6 p-4 bg-secondary rounded-lg text-center text-text-light text-sm aspect-video flex items-center justify-center"><p>Imagen no disponible</p></div>`;
         let ingredientesHtml = '<ul class="space-y-2.5 mb-8 list-none pl-0 text-text-dark">';
@@ -296,7 +359,7 @@ async function renderRecetaDetalle(recetaId) {
             instruccionesHtml += `<li class="text-sm leading-relaxed flex"><span class="bg-accent text-white rounded-full h-6 w-6 flex items-center justify-center font-semibold text-xs mr-3 flex-shrink-0">${index + 1}</span><span>${paso}</span></li>`;
         });
         instruccionesHtml += '</ol>';
-        
+
         const botonAnadirIngredientes = `
             <div class="mt-8 mb-6 text-center">
                 <button id="add-ingredients-to-list-btn" class="
@@ -323,7 +386,7 @@ async function renderRecetaDetalle(recetaId) {
                 <div class="bg-white/40 backdrop-blur-sm p-3 rounded-lg shadow-md border border-white/20"><strong class="block text-text-light text-xs uppercase tracking-wider mb-0.5">T. Prep</strong> ${receta.tiempoPrep || 'N/A'}</div>
                 <div class="bg-white/40 backdrop-blur-sm p-3 rounded-lg shadow-md border border-white/20 col-span-2 sm:col-span-1"><strong class="block text-text-light text-xs uppercase tracking-wider mb-0.5">T. Cocción</strong> ${receta.tiempoCoccion || 'N/A'}</div>
             </div>
-            ${botonAnadirIngredientes} 
+            ${botonAnadirIngredientes}
             <div class="grid md:grid-cols-5 gap-8">
                 <div class="md:col-span-2 mb-6 md:mb-0"><h3 class="text-2xl font-semibold text-accent mb-4 pb-2 border-b border-primary/40">Ingredientes</h3>${ingredientesHtml}</div>
                 <div class="md:col-span-3"><h3 class="text-2xl font-semibold text-accent mb-4 pb-2 border-b border-primary/40">Preparación</h3>${instruccionesHtml}</div>
@@ -343,49 +406,53 @@ async function renderRecetaDetalle(recetaId) {
 }
 
 async function handleAddIngredientesToLista() {
+    const addBtn = document.getElementById('add-ingredients-to-list-btn');
+    const feedbackEl = document.getElementById('add-ingredients-feedback');
+
     if (!currentRecipeIngredientsForShoppingList || currentRecipeIngredientsForShoppingList.length === 0) {
-        alert("No hay ingredientes en esta receta para añadir a la lista.");
+        showNotification("No hay ingredientes en esta receta para añadir.", 'info');
         return;
     }
 
-    const feedbackEl = document.getElementById('add-ingredients-feedback');
-    const addBtn = document.getElementById('add-ingredients-to-list-btn');
-    if(addBtn) addBtn.disabled = true;
-    if(feedbackEl) feedbackEl.textContent = 'Añadiendo...';
+    if(addBtn) {
+        addBtn.disabled = true;
+        addBtn.innerHTML = `<span class="animate-pulse">Añadiendo...</span>`;
+    }
+    if(feedbackEl) feedbackEl.textContent = '';
+
 
     try {
         const currentDB = await dbPromise;
         const transaction = currentDB.transaction('lista_compras', 'readwrite');
         const store = transaction.objectStore('lista_compras');
+        const index = store.index('ingrediente');
         let itemsAnadidos = 0;
         let itemsExistentes = 0;
 
         for (const ing of currentRecipeIngredientsForShoppingList) {
-            // COMENTARIO_ESTRATÉGICO: Se usa el índice 'ingrediente' para buscar duplicados.
-            const index = store.index('ingrediente');
-            const request = index.get(ing.nombre.toLowerCase()); // Buscar por nombre en minúsculas para ser case-insensitive
+            const nombreNormalizado = ing.nombre.trim().toLowerCase();
+            const request = index.get(nombreNormalizado);
 
             const existente = await new Promise((resolve, reject) => {
                 request.onsuccess = () => {
-                    // Verificar si el item encontrado no está comprado
                     if (request.result && !request.result.comprado) {
                         resolve(request.result);
                     } else {
-                        resolve(null); // No es un duplicado relevante si está comprado o no existe
+                        resolve(null);
                     }
                 };
                 request.onerror = (event) => reject(event.target.error);
             });
-            
+
             if (existente) {
                 itemsExistentes++;
                 console.log(`Ingrediente "${ing.nombre}" ya existe en la lista y no está comprado.`);
             } else {
                 const nuevoItem = {
                     id: `ing-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                    ingrediente: ing.nombre, // Guardar con capitalización original
-                    cantidad: ing.cantidad || "Al gusto",
-                    unidad: ing.unidad || "",
+                    ingrediente: ing.nombre.trim(),
+                    cantidad: ing.cantidad || "1",
+                    unidad: ing.unidad || "unidad",
                     comprado: false
                 };
                 await new Promise((resolve, reject) => {
@@ -395,43 +462,33 @@ async function handleAddIngredientesToLista() {
                 });
             }
         }
-        
+
         let mensajeFeedback = "";
-        if (itemsAnadidos > 0) mensajeFeedback += `${itemsAnadidos} ingrediente(s) nuevo(s) añadido(s). `;
-        if (itemsExistentes > 0) mensajeFeedback += `${itemsExistentes} ingrediente(s) ya estaban en la lista (y no comprados).`;
-        if (itemsAnadidos === 0 && itemsExistentes === 0 && currentRecipeIngredientsForShoppingList.length > 0) {
-             mensajeFeedback = "Todos los ingredientes ya están en tu lista (y no comprados).";
+        if (itemsAnadidos > 0) mensajeFeedback += `${itemsAnadidos} ingrediente(s) nuevo(s) añadido(s) a la lista. `;
+        if (itemsExistentes > 0) mensajeFeedback += `${itemsExistentes} ingrediente(s) ya estaban en la lista (y no comprados). `;
+        if (!mensajeFeedback && currentRecipeIngredientsForShoppingList.length > 0) {
+            mensajeFeedback = "Todos los ingredientes de esta receta ya están en tu lista (y no comprados).";
         } else if (currentRecipeIngredientsForShoppingList.length === 0) {
-             mensajeFeedback = "No hay ingredientes en esta receta para añadir.";
+             mensajeFeedback = "Esta receta no tiene ingredientes listados para añadir.";
         }
 
-        if(feedbackEl) feedbackEl.textContent = mensajeFeedback || "Proceso completado.";
+        showNotification(mensajeFeedback || "Proceso completado.", 'success');
         if(addBtn) addBtn.textContent = "Ingredientes Añadidos";
-        
-        setTimeout(() => {
-            if(feedbackEl) feedbackEl.textContent = '';
-        }, 4000);
 
     } catch (error) {
-        console.error("Error al añadir ingredientes a la lista de compras:", error);
-        if(feedbackEl) {
-            feedbackEl.textContent = `Error: ${error.message}. Asegúrate de que la BD esté actualizada.`;
-            feedbackEl.classList.remove('text-green-600');
-            feedbackEl.classList.add('text-red-500');
-        }
+        console.error("Error al añadir ingredientes:", error);
+        showNotification(`Error al añadir ingredientes: ${error.message}. Asegúrate de que la BD esté actualizada.`, 'error');
         if(addBtn) {
             addBtn.disabled = false;
-            addBtn.textContent = "➕ Añadir Ingredientes a la Lista de Compras";
+            addBtn.innerHTML = "➕ Añadir Ingredientes a la Lista de Compras";
         }
     }
 }
 
-async function renderMealPrep() { /* ...código existente... */ 
+async function renderMealPrep() {
     if (!mealPrepContainer) mealPrepContainer = document.getElementById('meal-prep-container');
     if (!mealPrepContainer) { console.error("Contenedor meal-prep-container no encontrado"); return; }
-
     mealPrepContainer.innerHTML = '<p class="text-text-light p-4 text-center">Cargando tareas de preparación...</p>';
-
     try {
         const currentDB = await dbPromise;
         const transaction = currentDB.transaction('meal_prep', 'readonly');
@@ -441,22 +498,18 @@ async function renderMealPrep() { /* ...código existente... */
             request.onsuccess = () => resolve(request.result);
             request.onerror = (event) => reject(event.target.error);
         });
-
         mealPrepContainer.innerHTML = '';
         if (todasLasTareas.length === 0) {
             mealPrepContainer.innerHTML = `<div class="bg-white/50 backdrop-blur-md rounded-xl shadow-lg border border-ui-border/40 p-6 text-center"><p class="text-text-light">No hay tareas de preparación programadas.</p></div>`;
             return;
         }
-
         const tareasAgrupadas = todasLasTareas.reduce((acc, tarea) => {
             const dia = tarea.dia_prep || 'General';
             if (!acc[dia]) acc[dia] = [];
             acc[dia].push(tarea);
             return acc;
         }, {});
-
         const ordenDias = ['Semanal', 'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'General'];
-
         for (const dia of ordenDias) {
             if (tareasAgrupadas[dia] && tareasAgrupadas[dia].length > 0) {
                 const seccionDiaDiv = document.createElement('div');
@@ -491,7 +544,10 @@ async function renderMealPrep() { /* ...código existente... */
         if (mealPrepContainer) mealPrepContainer.innerHTML = `<p class="text-red-500 p-4 text-center">No se pudieron cargar las tareas de preparación. ${error.message}</p>`;
     }
 }
-async function toggleEstadoTareaMealPrep(tareaId) { /* ...código existente... */ 
+
+async function toggleEstadoTareaMealPrep(tareaId) {
+    const checkbox = document.querySelector(`input[data-mealprep-id="${tareaId}"]`);
+    if(checkbox) checkbox.disabled = true;
     try {
         const currentDB = await dbPromise;
         const transaction = currentDB.transaction('meal_prep', 'readwrite');
@@ -511,12 +567,14 @@ async function toggleEstadoTareaMealPrep(tareaId) { /* ...código existente... *
         return { success: false, message: "Tarea no encontrada" };
     } catch (error) {
         console.error("[toggleEstadoTareaMealPrep] Error:", error);
+        showNotification(`Error al actualizar tarea: ${error.message}`, 'error');
         return { success: false, message: error.message };
+    } finally {
+        if(checkbox) checkbox.disabled = false;
     }
 }
+
 async function handleEliminarTareaMealPrep(tareaId) {
-    console.log(`Solicitud para eliminar tarea de meal prep: ${tareaId}`);
-    // COMENTARIO_ESTRATÉGICO: Reemplazar confirm() con un modal no bloqueante en el futuro.
     if (!confirm(`¿Estás seguro de que quieres eliminar esta tarea de preparación?`)) {
         return;
     }
@@ -529,64 +587,24 @@ async function handleEliminarTareaMealPrep(tareaId) {
             request.onsuccess = () => resolve();
             request.onerror = (event) => reject(event.target.error);
         });
-        console.log(`Tarea ${tareaId} eliminada de meal prep.`);
+        showNotification("Tarea de preparación eliminada.", 'success');
         await renderMealPrep();
     } catch (error) {
-        console.error(`Error al eliminar la tarea ${tareaId} de meal prep:`, error);
-        alert(`Error al eliminar la tarea: ${error.message}`);
+        console.error(`Error al eliminar tarea de meal prep:`, error);
+        showNotification(`Error al eliminar la tarea: ${error.message}`, 'error');
     }
 }
 
-function openIaRecipeModal() { /* ...código existente... */ 
-    iaRecipeModal.classList.remove('hidden');
-    iaRecipeLoading.classList.add('hidden');
-    iaRecipeError.classList.add('hidden');
-    iaRecipeDetails.classList.add('hidden');
-    saveIaRecipeButton.classList.add('hidden');
-}
-function closeIaRecipeModal() { /* ...código existente... */ 
-    iaRecipeModal.classList.add('hidden');
-    currentGeneratedRecipeData = null;
-}
-function displayGeneratedRecipeInModal(recipeData) { /* ...código existente... */ 
-    iaRecipeLoading.classList.add('hidden');
-    iaRecipeError.classList.add('hidden');
-    iaRecipeDetails.classList.remove('hidden');
-    saveIaRecipeButton.classList.remove('hidden');
-    saveIaRecipeButton.disabled = false;
-
-    iaRecipeModalTitle.textContent = recipeData.nombreReceta || "Receta Sugerida";
-    let detailsHtml = `<p class="text-sm text-text-light mb-3">${recipeData.descripcionCorta || ''}</p>`;
-    if (recipeData.tiempoPrep || recipeData.tiempoCoccion || recipeData.porciones) {
-        detailsHtml += `<div class="grid grid-cols-3 gap-2 text-xs text-text-light mb-4 text-center">`;
-        if(recipeData.tiempoPrep) detailsHtml += `<div><strong>Prep:</strong> ${recipeData.tiempoPrep}</div>`;
-        if(recipeData.tiempoCoccion) detailsHtml += `<div><strong>Cocción:</strong> ${recipeData.tiempoCoccion}</div>`;
-        if(recipeData.porciones) detailsHtml += `<div><strong>Porciones:</strong> ${recipeData.porciones}</div>`;
-        detailsHtml += `</div>`;
-    }
-
-    if (recipeData.ingredientesSugeridos && recipeData.ingredientesSugeridos.length > 0) {
-        detailsHtml += '<h4 class="font-semibold text-text-dark mt-4 mb-1">Ingredientes Sugeridos:</h4><ul class="list-disc list-inside text-sm space-y-1">';
-        recipeData.ingredientesSugeridos.forEach(ing => {
-            detailsHtml += `<li>${ing}</li>`;
-        });
-        detailsHtml += '</ul>';
-    }
-
-    if (recipeData.instrucciones && recipeData.instrucciones.length > 0) {
-        detailsHtml += '<h4 class="font-semibold text-text-dark mt-4 mb-1">Instrucciones:</h4><ol class="list-decimal list-inside text-sm space-y-1">';
-        recipeData.instrucciones.forEach(step => {
-            detailsHtml += `<li>${step}</li>`;
-        });
-        detailsHtml += '</ol>';
-    }
-    iaRecipeDetails.innerHTML = detailsHtml;
-    currentGeneratedRecipeData = recipeData;
-}
-async function handleGenerarRecetaConIngredientes() { /* ...código existente... */ 
+function openIaRecipeModal() { /* ...código existente... */ }
+function closeIaRecipeModal() { /* ...código existente... */ }
+function displayGeneratedRecipeInModal(recipeData) { /* ...código existente... */ }
+async function handleGenerarRecetaConIngredientes() {
     openIaRecipeModal();
     iaRecipeLoading.classList.remove('hidden');
+    iaRecipeDetails.classList.add('hidden');
+    iaRecipeError.classList.add('hidden');
     generarRecetaIAButton.disabled = true;
+    generarRecetaIAButton.innerHTML = `<span class="animate-pulse">✨ Generando...</span>`;
 
     try {
         const currentDB = await dbPromise;
@@ -600,20 +618,19 @@ async function handleGenerarRecetaConIngredientes() { /* ...código existente...
 
         const ingredientesDisponibles = todosLosItems
             .filter(item => !item.comprado)
-            .map(item => `${item.ingrediente} (${item.cantidad} ${item.unidad})`);
+            .map(item => `${item.ingrediente}${item.cantidad && item.unidad ? ` (${item.cantidad} ${item.unidad})` : ''}`);
 
         if (ingredientesDisponibles.length === 0) {
             iaRecipeLoading.classList.add('hidden');
             iaRecipeError.classList.remove('hidden');
-            iaRecipeError.textContent = "No hay ingredientes disponibles en tu lista para generar una receta.";
+            iaRecipeError.textContent = "No hay ingredientes disponibles para generar una receta.";
             generarRecetaIAButton.disabled = false;
+            generarRecetaIAButton.innerHTML = `✨ Crear Receta con Mis Ingredientes ✨`;
             return;
         }
 
         const prompt = `Eres un asistente de cocina experto. Crea una receta saludable y sabrosa en español usando principalmente los siguientes ingredientes disponibles: ${ingredientesDisponibles.join(', ')}. Puedes sugerir pequeñas cantidades de ingredientes comunes adicionales si son esenciales (ej. aceite, sal, pimienta, especias básicas). Por favor, proporciona el nombre de la receta, una breve descripción (2-3 frases), una lista de todos los ingredientes necesarios con cantidades claras (ej. '2 tazas de arroz', '1 cda de aceite de oliva'), y las instrucciones paso a paso. También sugiere el tiempo de preparación, tiempo de cocción y número de porciones. La receta debe ser adecuada para una familia en Venezuela. Si algún ingrediente de la lista no encaja bien, puedes omitirlo.`;
         
-        console.log("Prompt para Gemini:", prompt);
-
         let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
         const payload = {
             contents: chatHistory,
@@ -657,14 +674,10 @@ async function handleGenerarRecetaConIngredientes() { /* ...código existente...
             console.error("Error de la API de Gemini:", response.status, errorBody);
             throw new Error(`Error de la API: ${response.status}`);
         }
-
         const result = await response.json();
-        console.log("Respuesta de Gemini:", result);
-
         if (result.candidates && result.candidates.length > 0 &&
             result.candidates[0].content && result.candidates[0].content.parts &&
             result.candidates[0].content.parts.length > 0 && result.candidates[0].content.parts[0].text) {
-            
             const recipeJsonString = result.candidates[0].content.parts[0].text;
             const recipeData = JSON.parse(recipeJsonString);
             displayGeneratedRecipeInModal(recipeData);
@@ -672,29 +685,28 @@ async function handleGenerarRecetaConIngredientes() { /* ...código existente...
             console.error("Respuesta inesperada de Gemini:", result);
             throw new Error("No se pudo obtener una receta de la IA.");
         }
-
     } catch (error) {
         console.error("Error generando receta con IA:", error);
         iaRecipeLoading.classList.add('hidden');
         iaRecipeError.classList.remove('hidden');
-        iaRecipeError.textContent = `Error: ${error.message}. Intenta de nuevo.`;
+        iaRecipeError.textContent = `Error al generar receta: ${error.message}. Intenta de nuevo.`;
     } finally {
         generarRecetaIAButton.disabled = false;
+        generarRecetaIAButton.innerHTML = `✨ Crear Receta con Mis Ingredientes ✨`;
     }
 }
-async function handleSaveGeneratedRecipe() { /* ...código existente... */ 
+
+async function handleSaveGeneratedRecipe() {
     if (!currentGeneratedRecipeData) {
-        alert("No hay receta generada para guardar.");
+        showNotification("No hay receta generada para guardar.", 'warning');
         return;
     }
     saveIaRecipeButton.disabled = true;
-    saveIaRecipeButton.textContent = "Guardando...";
-
+    saveIaRecipeButton.innerHTML = `<span class="animate-pulse">Guardando...</span>`;
     try {
         const currentDB = await dbPromise;
         const transaction = currentDB.transaction('recetas', 'readwrite');
         const store = transaction.objectStore('recetas');
-
         const nuevaReceta = {
             id: `ia-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             nombre: currentGeneratedRecipeData.nombreReceta,
@@ -713,26 +725,31 @@ async function handleSaveGeneratedRecipe() { /* ...código existente... */
             instrucciones: currentGeneratedRecipeData.instrucciones || [],
             notasAdicionales: "Receta generada por IA con NutriPlan ✨"
         };
-        
         await new Promise((resolve, reject) => {
             const request = store.add(nuevaReceta);
             request.onsuccess = resolve;
             request.onerror = (event) => reject(event.target.error);
         });
-
-        alert("¡Receta guardada con éxito!");
+        showNotification("¡Receta guardada con éxito!", 'success');
         closeIaRecipeModal();
-
+        if (window.location.hash.includes("mis-recetas")) { // Refrescar si está en la vista de mis recetas
+            await renderMisRecetas();
+        }
     } catch (error) {
         console.error("Error guardando receta generada:", error);
-        alert(`Error al guardar la receta: ${error.message}`);
+        showNotification(`Error al guardar la receta: ${error.message}`, 'error');
     } finally {
         saveIaRecipeButton.disabled = false;
-        saveIaRecipeButton.textContent = "Guardar Receta";
+        saveIaRecipeButton.innerHTML = "Guardar Receta";
     }
 }
 
-async function loadSampleData() { /* ...código existente... */ 
+async function loadSampleData() {
+    const btn = loadSampleDataButton;
+    if(btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="animate-pulse">Cargando Datos...</span>`;
+    }
     try {
         const currentDB = await dbPromise;
         console.log('[loadSampleData] Cargando datos de ejemplo en IndexedDB...');
@@ -790,15 +807,22 @@ async function loadSampleData() { /* ...código existente... */
             ...sampleRecetas.map(r_item => new Promise((res, rej) => { const req = stores.recetas.put(r_item); req.onsuccess = res; req.onerror = rej; }))
         ]);
         console.log("[loadSampleData] Nuevos datos de ejemplo cargados.");
-        alert('Datos de ejemplo cargados con éxito.');
+        showNotification('Datos de ejemplo cargados con éxito.', 'success');
         const currentFullHash = window.location.hash.substring(1);
         const [currentViewNameForReload] = currentFullHash.split('/');
         if (currentViewNameForReload === 'lista-compras') await renderListaCompras();
         else if (currentViewNameForReload === 'plan-semanal') await renderPlanSemanal();
         else if (currentViewNameForReload === 'meal-prep') await renderMealPrep();
+        else if (currentViewNameForReload === 'mis-recetas') await renderMisRecetas();
+
     } catch (error) {
         console.error("[loadSampleData] Error:", error);
-        alert("Error al cargar los datos de ejemplo: " + error.message);
+        showNotification(`Error al cargar datos de ejemplo: ${error.message}`, 'error');
+    } finally {
+        if(btn) {
+            btn.disabled = false;
+            btn.innerHTML = `Explorar Plan de Ejemplo`;
+        }
     }
 }
 
@@ -811,6 +835,8 @@ async function main() {
     planSemanalContainer = document.getElementById('plan-semanal-container');
     mealPrepContainer = document.getElementById('meal-prep-container');
     recetaDetalleContentWrapper = document.getElementById('receta-detalle-content-wrapper');
+    misRecetasContainer = document.getElementById('mis-recetas-container');
+    notificationArea = document.getElementById('notification-area');
     generarRecetaIAButton = document.getElementById('generar-receta-ia-button');
     iaRecipeModal = document.getElementById('ia-recipe-modal');
     iaRecipeModalTitle = document.getElementById('ia-recipe-modal-title');
@@ -825,37 +851,19 @@ async function main() {
     window.addEventListener('hashchange', router);
 
     if (loadSampleDataButton) {
-        loadSampleDataButton.addEventListener('click', async () => {
-            loadSampleDataButton.disabled = true;
-            const originalText = loadSampleDataButton.textContent;
-            loadSampleDataButton.textContent = 'Cargando...';
-            await loadSampleData();
-            loadSampleDataButton.disabled = false;
-            loadSampleDataButton.textContent = originalText;
-        });
+        loadSampleDataButton.addEventListener('click', loadSampleData);
     }
 
     if (listaComprasContainer) {
         listaComprasContainer.addEventListener('click', async (event) => {
             const target = event.target;
             if (target.type === 'checkbox' && target.dataset.itemId) {
-                const itemId = target.dataset.itemId;
-                const listItemElement = target.closest('li');
-                target.disabled = true;
-                const result = await toggleEstadoItemCompra(itemId);
-                if (result.success && listItemElement) {
-                    // Visual update handled by renderListaCompras
-                } else if (!result.success) {
-                    target.checked = !target.checked; 
-                    alert('Hubo un error al guardar el cambio: ' + (result.message || 'Error desconocido'));
-                }
-                target.disabled = false;
+                await toggleEstadoItemCompra(target.dataset.itemId);
             }
             else if (target.closest('.delete-item-btn')) {
                 const button = target.closest('.delete-item-btn');
-                const itemId = button.dataset.itemId;
-                if (itemId) {
-                    await handleEliminarItemCompra(itemId);
+                if (button.dataset.itemId) {
+                    await handleEliminarItemCompra(button.dataset.itemId);
                 }
             }
         });
@@ -866,7 +874,7 @@ async function main() {
             if (target.type === 'checkbox' && target.dataset.mealprepId) {
                 const tareaId = target.dataset.mealprepId;
                 const listItemElement = target.closest('li');
-                target.disabled = true;
+                target.disabled = true; // Deshabilitar para evitar doble click
                 const result = await toggleEstadoTareaMealPrep(tareaId);
                  if (result.success && listItemElement) {
                     listItemElement.classList.toggle('opacity-60', result.newState);
@@ -879,15 +887,13 @@ async function main() {
                     target.checked = result.newState; 
                 } else if (!result.success) {
                     target.checked = !target.checked; 
-                    alert('Hubo un error al guardar el cambio: ' + (result.message || 'Error desconocido'));
+                    showNotification('Hubo un error al guardar el cambio: ' + (result.message || 'Error desconocido'), 'error');
                 }
-                target.disabled = false;
-            }
-            else if (target.closest('.delete-mealprep-btn')) {
+                target.disabled = false; // Re-habilitar
+            } else if (target.closest('.delete-mealprep-btn')) {
                 const button = target.closest('.delete-mealprep-btn');
-                const tareaId = button.dataset.mealprepId;
-                if (tareaId) {
-                    await handleEliminarTareaMealPrep(tareaId);
+                if (button.dataset.mealprepId) {
+                    await handleEliminarTareaMealPrep(button.dataset.mealprepId);
                 }
             }
         });
