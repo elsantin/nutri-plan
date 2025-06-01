@@ -3,55 +3,58 @@
 body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* COMENTARIO_ESTRATÉGICO: Fondo texturizado para el tema "Santuario Nutricional Digital" */
-    background-image: url('../images/app-background.webp'); 
-    background-repeat: repeat; 
+    background-color: #F5F5F2; /* Color de fondo base para toda la página */
+}
+
+#main-content {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    flex-grow: 1;
+
+    /* COMENTARIO_ESTRATÉGICO: Restauramos la imagen de fondo del kiwi. */
+    background-image: url('../images/app-background.webp');
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center bottom; /* o 'right bottom' si prefieres anclarlo a esa esquina */
+
+    /* COMENTARIO_ESTRATÉGICO: Este padding-bottom es para el espacio de la firma.
+       Como #views-wrapper (el hijo flex-grow) toma el espacio ANTES del padding del padre,
+       este padding efectivamente crea un espacio en la parte inferior de #main-content
+       donde el fondo es visible, sin causar un scroll en #views-wrapper. */
+    padding-bottom: 4rem; /* Ajusta este valor si necesitas más o menos espacio para la firma */
 }
 
 /* Estilo para los elementos de la lista de compras marcados como 'comprado' */
 li.comprado label {
     text-decoration: line-through;
-    color: #6B7280; /* Tailwind gray-500 (text-light de nuestra paleta) */
+    color: #6B7280;
     opacity: 0.7;
 }
 
-/* === INICIO: Transición de Fundido con Vistas Superpuestas === */
-
+/* === Transición de Fundido con Vistas Superpuestas === */
 .view {
-    /* COMENTARIO_ESTRATÉGICO:
-       - Todas las vistas ahora son absolutas dentro de su contenedor relativo (main-content).
-       - top: 0, left: 0, width: 100% aseguran que ocupen todo el espacio de main-content.
-       - La transición sigue siendo solo para la opacidad.
-       - height: 100% para que la vista ocupe toda la altura del contenedor main-content.
-    */
     position: absolute;
     top: 0;
+    bottom: 0;
     left: 0;
-    width: 100%;
-    height: 100%; 
+    right: 0;
     transition: opacity 0.3s ease-in-out;
-    opacity: 0; /* Por defecto, todas las vistas están invisibles */
-    pointer-events: none; /* Por defecto, ninguna vista es interactiva */
-    /* COMENTARIO_ESTRATÉGICO: Para evitar que el contenido de una vista invisible
-       afecte el scroll de la vista visible, especialmente si la invisible es más larga. */
-    overflow: hidden; 
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden; /* Evita desbordamientos en vistas no activas */
+    background-color: transparent; /* Las vistas son transparentes al fondo de #main-content */
 }
 
 .view.active {
-    /* COMENTARIO_ESTRATÉGICO:
-       - La clase 'active' hace la vista visible e interactiva.
-       - No necesita position: relative o z-index aquí si solo una está 'active' a la vez.
-    */
     opacity: 1;
     pointer-events: auto;
-    overflow: auto; /* Permitir scroll en la vista activa si es necesario y el contenido excede */
+    overflow: auto; /* Permite scroll si el contenido de la vista activa es largo */
 }
-
-/* === FIN: Transición de Fundido con Vistas Superpuestas === */
 
 /* Mejoras de accesibilidad para el foco */
 *:focus-visible {
-  outline: 2px solid #A5D6A7; /* 'primary' de nuestra paleta */
+  outline: 2px solid #A5D6A7;
   outline-offset: 2px;
   border-radius: 2px;
 }

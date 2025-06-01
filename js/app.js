@@ -3,89 +3,31 @@
  * Lógica principal para la PWA NutriPlan Narváez Yánez
  */
 
-// ... (Todo el código hasta showView permanece igual) ...
-
+// COMENTARIO_ESTRATÉGICO: Constantes para la configuración de IndexedDB.
 const DB_NAME = 'pwa_nutriplan_db';
 const DB_VERSION = 1;
-let db; 
+let db; // Variable global para la instancia de la BD.
 
 console.log('[App] Script cargado. Iniciando dbPromise...');
-const dbPromise = initDB();
+const dbPromise = initDB(); // Promesa para asegurar que la BD esté lista.
 console.log('[App] dbPromise iniciado.');
 
+// COMENTARIO_ESTRATÉGICO: Variables globales para elementos del DOM.
+// Se inicializarán en main() después de que el DOM cargue.
 let views, loadSampleDataButton, listaComprasContainer, currentYearSpan, planSemanalContainer, mealPrepContainer, recetaDetalleContentWrapper;
 
-
 /**
- * Muestra la vista especificada con una animación de "Fundido Puro".
- * @param {string} viewId El ID de la vista a mostrar (sin el prefijo 'view-').
+ * Inicializa y abre la conexión a la base de datos IndexedDB.
  */
-function showView(viewId) {
-    // COMENTARIO_ESTRATÉGICO: La duración de la animación en CSS es ahora 300ms.
-    const TRANSITION_DURATION = 300; // Sincronizado con el CSS (0.3s)
-
-    const currentView = document.querySelector('.view:not(.hidden):not(.view-entering)');
-    const nextView = document.getElementById(`view-${viewId}`);
-
-    if (!nextView) {
-        console.error(`showView: No se encontró la vista con ID 'view-${viewId}'`);
-        return;
-    }
-
-    if (currentView === nextView) {
-        // Si ya estamos en la vista correcta y no está en proceso de entrar, no hacemos nada.
-        if (!nextView.classList.contains('view-entering')) {
-            return;
-        }
-    }
-    
-    // --- Animación de la vista que SALE ---
-    if (currentView) {
-        // 1. A la vista actual, le añadimos la clase de salida para que se desvanezca.
-        currentView.classList.add('view-exiting');
-        
-        // 2. Programamos que, cuando la animación termine, se oculte por completo.
-        setTimeout(() => {
-            currentView.classList.add('hidden');
-            currentView.classList.remove('view-exiting'); // Limpiamos la clase de salida.
-        }, TRANSITION_DURATION);
-    }
-    
-    // --- Animación de la vista que ENTRA ---
-    // 3. Preparamos la nueva vista: la hacemos visible en el DOM (quitando 'hidden')
-    //    y le ponemos la clase 'view-entering' que la mantiene en opacity: 0.
-    nextView.classList.remove('hidden');
-    nextView.classList.add('view-entering');
-
-    // 4. Este es el truco para la animación de entrada:
-    //    Usamos un pequeño `setTimeout` (o requestAnimationFrame) para permitir que el navegador
-    //    aplique primero el estado de 'view-entering' (opacity: 0) y LUEGO, en el siguiente "frame",
-    //    se lo quitamos. Esto fuerza al navegador a animar la transición desde opacity: 0 a opacity: 1.
-    setTimeout(() => {
-        nextView.classList.remove('view-entering');
-    }, 20); // Un retraso muy corto es suficiente para que el navegador procese el cambio de clase.
-}
-
-
-// ... (El resto del archivo js/app.js sigue aquí, sin cambios) ...
-// PEGA ESTA NUEVA FUNCIÓN showView EN TU ARCHIVO, REEMPLAZANDO LA ANTERIOR.
-// EL RESTO DEL CÓDIGO PERMANECE IGUAL.
-// A CONTINUACIÓN, SE INCLUYE EL RESTO DEL CÓDIGO PARA TU REFERENCIA Y COMPLETITUD.
-
 function initDB() {
-    console.log('[initDB] Intentando abrir conexión...');
     return new Promise((resolve, reject) => {
         if (db && db.version === DB_VERSION) {
-            console.log('[initDB] Conexión a BD ya existe y es válida. Resolviendo inmediatamente.');
             resolve(db);
             return;
         }
-        
-        console.log(`[initDB] Llamando a indexedDB.open('${DB_NAME}', ${DB_VERSION})`);
         const request = indexedDB.open(DB_NAME, DB_VERSION);
 
         request.onupgradeneeded = (event) => {
-            console.log('[initDB] onupgradeneeded: Creando/actualizando object stores...');
             const dbInstance = event.target.result;
             if (!dbInstance.objectStoreNames.contains('lista_compras')) {
                 dbInstance.createObjectStore('lista_compras', { keyPath: 'id' });
@@ -100,67 +42,113 @@ function initDB() {
                 dbInstance.createObjectStore('meal_prep', { keyPath: 'id' });
             }
         };
-
         request.onsuccess = (event) => {
-            db = event.target.result; 
-            console.log('[initDB] onsuccess: Conexión a BD exitosa.');
-            resolve(db); 
+            db = event.target.result;
+            resolve(db);
         };
-
-        request.onerror = (event) => {
-            console.error('[initDB] onerror: Error al abrir la base de datos:', event.target.error);
-            reject(event.target.error); 
-        };
-        
+        request.onerror = (event) => reject(event.target.error);
         request.onblocked = (event) => {
-            console.error('[initDB] onblocked: Apertura de BD bloqueada.');
+            console.error('[initDB] Apertura de BD bloqueada. Cierra otras pestañas de NutriPlan.');
+            // COMENTARIO_ESTRATÉGICO: Reemplazar alert con un modal no bloqueante en el futuro.
+            // Por ahora, se mantiene el alert para funcionalidad básica.
             alert("NutriPlan no puede iniciarse porque otra pestaña lo está bloqueando. Por favor, cierra todas las demás pestañas de NutriPlan y refresca esta página.");
             reject(new Error("Apertura de BD bloqueada."));
         };
     });
 }
 
+/**
+ * Muestra la vista especificada con una animación de "Fundido con Vistas Superpuestas".
+ * @param {string} viewId El ID de la vista a mostrar (sin el prefijo 'view-').
+ */
+function showView(viewId) {
+    if (!views || views.length === 0) {
+        views = document.querySelectorAll('.view');
+        if (!views.length) {
+            console.error("showView: No se encontraron elementos .view en el DOM.");
+            return;
+        }
+    }
+
+    const nextView = document.getElementById(`view-${viewId}`);
+
+    if (!nextView) {
+        console.error(`showView: No se encontró la vista con ID 'view-${viewId}'`);
+        const inicioView = document.getElementById('view-inicio');
+        views.forEach(view => view.classList.remove('active'));
+        if (inicioView) inicioView.classList.add('active');
+        return;
+    }
+
+    views.forEach(view => {
+        view.classList.remove('active');
+    });
+
+    requestAnimationFrame(() => {
+        nextView.classList.add('active');
+    });
+}
+
+
+/**
+ * Enrutador simple basado en el hash de la URL.
+ */
 async function router() {
     const fullHash = window.location.hash.substring(1);
-    const [viewName, param] = fullHash.split('/'); 
+    const [viewName, param] = fullHash.split('/');
     const currentViewId = viewName || 'inicio';
 
     console.log(`[Router] Navegando a #${currentViewId}, Param: ${param}`);
-    
+
+    showView(currentViewId);
+
     switch (currentViewId) {
         case 'inicio':
-            showView('inicio');
+            // Contenido estático.
             break;
         case 'plan-semanal':
-            showView('plan-semanal');
-            await renderPlanSemanal(); 
+            await renderPlanSemanal();
             break;
         case 'lista-compras':
-            showView('lista-compras');
-            await renderListaCompras(); 
+            await renderListaCompras();
             break;
         case 'meal-prep':
-            showView('meal-prep');
             await renderMealPrep();
             break;
         case 'receta-detalle':
-            showView('receta-detalle');
             if (param) {
                 await renderRecetaDetalle(param);
             } else {
-                if(recetaDetalleContentWrapper) recetaDetalleContentWrapper.innerHTML = '<p class="text-red-500 p-4 text-center">Error: No se especificó una receta.</p>';
+                const rdContentWrapper = document.getElementById('receta-detalle-content-wrapper');
+                if(rdContentWrapper) rdContentWrapper.innerHTML = '<p class="text-red-500 p-4 text-center">Error: No se especificó una receta.</p>';
+                console.warn("[Router] ID de receta no proporcionado para receta-detalle.");
             }
             break;
+        // COMENTARIO_ESTRATÉGICO: Nuevo case para la vista "Acerca de".
+        // Por ahora, su contenido es estático en el HTML, así que no necesita una función de renderizado.
+        case 'acerca-de':
+            // El contenido es estático en el HTML, no se necesita renderizado JS adicional.
+            break;
         default:
-            showView('inicio');
+            console.warn(`[Router] Ruta desconocida "${currentViewId}", se mantiene la vista actual o de inicio.`);
+            // Opcionalmente, redirigir a #inicio si la ruta es completamente desconocida.
+            // if (!document.getElementById(`view-${currentViewId}`)) {
+            //     window.location.hash = '#inicio';
+            // }
             break;
     }
 }
 
+/**
+ * Renderiza la lista de compras.
+ */
 async function renderListaCompras() {
-    if (!listaComprasContainer) return;
+    if (!listaComprasContainer) {
+        listaComprasContainer = document.getElementById('lista-compras-container');
+        if (!listaComprasContainer) { console.error("Contenedor lista-compras-container no encontrado"); return; }
+    }
     listaComprasContainer.innerHTML = '<p class="text-text-light p-4 text-center">Cargando tu lista de compras...</p>';
-    
+
     try {
         const currentDB = await dbPromise;
         const transaction = currentDB.transaction('lista_compras', 'readonly');
@@ -170,10 +158,10 @@ async function renderListaCompras() {
             request.onsuccess = () => resolve(request.result);
             request.onerror = (event) => reject(event.target.error);
         });
-        
-        listaComprasContainer.innerHTML = ''; 
+
+        listaComprasContainer.innerHTML = '';
         if (todosLosItems.length === 0) {
-            listaComprasContainer.innerHTML = '<p class="text-text-light p-6 text-center bg-white/50 backdrop-blur-md rounded-xl shadow-lg border border-slate-200/40">Tu lista de compras está vacía.</p>';
+            listaComprasContainer.innerHTML = '<p class="text-text-light p-6 text-center bg-white/50 backdrop-blur-md rounded-xl shadow-lg border border-slate-200/40">Tu lista de compras está vacía. ¡Añade algunos ingredientes o carga datos de ejemplo!</p>';
         } else {
             todosLosItems.forEach(item => {
                 const li = document.createElement('li');
@@ -189,11 +177,17 @@ async function renderListaCompras() {
     }
 }
 
+/**
+ * Genera el HTML para la tabla del plan semanal.
+ */
 function generarHTMLPlanTabla(plan) {
     let html = `<div class="overflow-x-auto rounded-xl shadow-xl hidden md:block bg-white/50 backdrop-blur-lg border border-white/30 p-1"><table class="w-full text-sm text-left text-text-dark"><thead class="text-xs text-text-light uppercase bg-white/20 backdrop-blur-sm"><tr><th scope="col" class="px-6 py-4 font-semibold rounded-tl-lg">Comida</th>${plan.map(p => `<th scope="col" class="px-6 py-4 font-semibold capitalize">${p.dia}</th>`).join('')}<th scope="col" class="px-1 py-3 rounded-tr-lg"></th></tr></thead><tbody><tr class="bg-transparent hover:bg-white/20 border-b border-ui-border/20 transition-colors duration-200"><th scope="row" class="px-6 py-4 font-medium whitespace-nowrap">Desayuno</th>${plan.map(p => `<td class="px-6 py-4"><a href="#receta-detalle/${p.desayuno.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${p.desayuno.nombre}</a></td>`).join('')}<td></td></tr><tr class="bg-transparent hover:bg-white/20 border-b border-ui-border/20 transition-colors duration-200"><th scope="row" class="px-6 py-4 font-medium whitespace-nowrap">Almuerzo</th>${plan.map(p => `<td class="px-6 py-4"><a href="#receta-detalle/${p.almuerzo.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${p.almuerzo.nombre}</a></td>`).join('')}<td></td></tr><tr class="bg-transparent hover:bg-white/20 transition-colors duration-200"><th scope="row" class="px-6 py-4 font-medium whitespace-nowrap rounded-bl-lg">Cena</th>${plan.map(p => `<td class="px-6 py-4"><a href="#receta-detalle/${p.cena.id_receta}" class="text-text-dark hover:text-accent hover:underline transition-colors duration-200">${p.cena.nombre}</a></td>`).join('')}<td class="rounded-br-lg"></td></tr></tbody></table></div>`;
     return html;
 }
 
+/**
+ * Genera el HTML para las tarjetas del plan semanal.
+ */
 function generarHTMLPlanTarjetas(plan) {
     let html = `<div class="space-y-4 md:hidden">`;
     plan.forEach(dia => {
@@ -203,8 +197,14 @@ function generarHTMLPlanTarjetas(plan) {
     return html;
 }
 
+/**
+ * Renderiza el plan semanal.
+ */
 async function renderPlanSemanal() {
-    if (!planSemanalContainer) return;
+    if (!planSemanalContainer) {
+        planSemanalContainer = document.getElementById('plan-semanal-container');
+        if (!planSemanalContainer) { console.error("Contenedor plan-semanal-container no encontrado"); return; }
+    }
     planSemanalContainer.innerHTML = '<p class="text-text-light p-6 text-center">Cargando tu plan semanal...</p>';
     try {
         const currentDB = await dbPromise;
@@ -215,9 +215,9 @@ async function renderPlanSemanal() {
             request.onsuccess = () => resolve(request.result);
             request.onerror = (event) => reject(event.target.error);
         });
-        
+
         if (planCompleto.length === 0) {
-            planSemanalContainer.innerHTML = '<p class="text-text-light p-6 text-center">No hay un plan semanal cargado.</p>';
+            planSemanalContainer.innerHTML = '<p class="text-text-light p-6 text-center">No hay un plan semanal cargado. ¡Carga datos de ejemplo desde Inicio!</p>';
         } else {
             const diasOrdenados = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
             planCompleto.sort((a, b) => diasOrdenados.indexOf(a.dia) - diasOrdenados.indexOf(b.dia));
@@ -229,8 +229,14 @@ async function renderPlanSemanal() {
     }
 }
 
+/**
+ * Renderiza el detalle de una receta.
+ */
 async function renderRecetaDetalle(recetaId) {
-    if (!recetaDetalleContentWrapper) return;
+    if (!recetaDetalleContentWrapper) {
+        recetaDetalleContentWrapper = document.getElementById('receta-detalle-content-wrapper');
+        if (!recetaDetalleContentWrapper) { console.error("Contenedor receta-detalle-content-wrapper no encontrado"); return; }
+    }
     recetaDetalleContentWrapper.innerHTML = '<p class="text-text-light p-8 text-center text-lg">Cargando detalles de la receta...</p>';
 
     try {
@@ -248,26 +254,29 @@ async function renderRecetaDetalle(recetaId) {
             return;
         }
 
-        const imagenHtml = receta.imagenUrl 
+        const imagenHtml = receta.imagenUrl
             ? `<div class="mb-6 md:mb-8 rounded-xl overflow-hidden shadow-xl aspect-video"><img src="${receta.imagenUrl}" alt="${receta.nombre}" class="w-full h-full object-cover" onerror="this.onerror=null;this.src='https://placehold.co/600x400/F0EFE6/263A29?text=Imagen+no+disponible';"></div>`
             : `<div class="mb-6 p-4 bg-secondary rounded-lg text-center text-text-light text-sm aspect-video flex items-center justify-center"><p>Imagen no disponible</p></div>`;
         let ingredientesHtml = '<ul class="space-y-2.5 mb-8 list-none pl-0 text-text-dark">';
-        receta.ingredientes.forEach(ing => {
+        (receta.ingredientes || []).forEach(ing => {
             ingredientesHtml += `<li class="text-sm flex items-center p-3 bg-white/40 backdrop-blur-sm rounded-lg shadow-sm border border-white/20"><span class="text-primary mr-2 text-lg">▹</span><span class="font-medium">${ing.cantidad} ${ing.unidad}</span>&nbsp;de ${ing.nombre}${ing.notas ? ` <em class="text-xs text-text-light ml-1">(${ing.notas})</em>` : ''}</li>`;
         });
         ingredientesHtml += '</ul>';
         let instruccionesHtml = '<ol class="space-y-4 text-text-dark">';
-        receta.instrucciones.forEach((paso, index) => {
+        (receta.instrucciones || []).forEach((paso, index) => {
             instruccionesHtml += `<li class="text-sm leading-relaxed flex"><span class="bg-accent text-white rounded-full h-6 w-6 flex items-center justify-center font-semibold text-xs mr-3 flex-shrink-0">${index + 1}</span><span>${paso}</span></li>`;
         });
         instruccionesHtml += '</ol>';
-        recetaDetalleContentWrapper.innerHTML = `<button onclick="window.history.back()" class="mb-6 text-accent hover:text-primary font-medium text-sm flex items-center transition-colors duration-200 group"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1.5 transform group-hover:-translate-x-1 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>Volver</button>${imagenHtml}<h2 class="text-3xl md:text-4xl font-semibold text-text-dark mb-2 text-center">${receta.nombre}</h2><p class="text-text-light mb-8 text-sm text-center italic">${receta.descripcionCorta || ''}</p><div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8 text-sm text-center"><div class="bg-white/40 backdrop-blur-sm p-3 rounded-lg shadow-md border border-white/20"><strong class="block text-text-light text-xs uppercase tracking-wider mb-0.5">Porciones</strong> ${receta.porciones}</div><div class="bg-white/40 backdrop-blur-sm p-3 rounded-lg shadow-md border border-white/20"><strong class="block text-text-light text-xs uppercase tracking-wider mb-0.5">T. Prep</strong> ${receta.tiempoPrep}</div><div class="bg-white/40 backdrop-blur-sm p-3 rounded-lg shadow-md border border-white/20 col-span-2 sm:col-span-1"><strong class="block text-text-light text-xs uppercase tracking-wider mb-0.5">T. Cocción</strong> ${receta.tiempoCoccion}</div></div><div class="grid md:grid-cols-5 gap-8"><div class="md:col-span-2 mb-6 md:mb-0"><h3 class="text-2xl font-semibold text-accent mb-4 pb-2 border-b border-primary/40">Ingredientes</h3>${ingredientesHtml}</div><div class="md:col-span-3"><h3 class="text-2xl font-semibold text-accent mb-4 pb-2 border-b border-primary/40">Preparación</h3>${instruccionesHtml}</div></div>${receta.notasAdicionales ? `<div class="mt-10 pt-6 border-t border-primary/30"><h4 class="text-lg font-semibold text-text-dark mb-2">Notas Adicionales:</h4><p class="text-sm text-text-light italic leading-relaxed">${receta.notasAdicionales}</p></div>` : ''}`;
+        recetaDetalleContentWrapper.innerHTML = `<button onclick="window.history.back()" class="mb-6 text-accent hover:text-primary font-medium text-sm flex items-center transition-colors duration-200 group"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1.5 transform group-hover:-translate-x-1 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>Volver</button>${imagenHtml}<h2 class="text-3xl md:text-4xl font-semibold text-text-dark mb-2 text-center">${receta.nombre}</h2><p class="text-text-light mb-8 text-sm text-center italic">${receta.descripcionCorta || ''}</p><div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8 text-sm text-center"><div class="bg-white/40 backdrop-blur-sm p-3 rounded-lg shadow-md border border-white/20"><strong class="block text-text-light text-xs uppercase tracking-wider mb-0.5">Porciones</strong> ${receta.porciones || 'N/A'}</div><div class="bg-white/40 backdrop-blur-sm p-3 rounded-lg shadow-md border border-white/20"><strong class="block text-text-light text-xs uppercase tracking-wider mb-0.5">T. Prep</strong> ${receta.tiempoPrep || 'N/A'}</div><div class="bg-white/40 backdrop-blur-sm p-3 rounded-lg shadow-md border border-white/20 col-span-2 sm:col-span-1"><strong class="block text-text-light text-xs uppercase tracking-wider mb-0.5">T. Cocción</strong> ${receta.tiempoCoccion || 'N/A'}</div></div><div class="grid md:grid-cols-5 gap-8"><div class="md:col-span-2 mb-6 md:mb-0"><h3 class="text-2xl font-semibold text-accent mb-4 pb-2 border-b border-primary/40">Ingredientes</h3>${ingredientesHtml}</div><div class="md:col-span-3"><h3 class="text-2xl font-semibold text-accent mb-4 pb-2 border-b border-primary/40">Preparación</h3>${instruccionesHtml}</div></div>${receta.notasAdicionales ? `<div class="mt-10 pt-6 border-t border-primary/30"><h4 class="text-lg font-semibold text-text-dark mb-2">Notas Adicionales:</h4><p class="text-sm text-text-light italic leading-relaxed">${receta.notasAdicionales}</p></div>` : ''}`;
     } catch (error) {
         console.error('[renderRecetaDetalle] Error:', error);
         if (recetaDetalleContentWrapper) recetaDetalleContentWrapper.innerHTML = `<p class="text-red-500 p-6 text-center">No se pudo cargar el detalle de la receta. ${error.message}</p>`;
     }
 }
 
+/**
+ * Cambia el estado de 'comprado' de un ítem.
+ */
 async function toggleEstadoItemCompra(itemId) {
     try {
         const currentDB = await dbPromise;
@@ -280,10 +289,9 @@ async function toggleEstadoItemCompra(itemId) {
         });
         if (item) {
             item.comprado = !item.comprado;
-            await new Promise((resolve, reject) => { 
-                const req = store.put(item); 
-                req.onsuccess = resolve;
-                req.onerror = reject; 
+            await new Promise((resolve, reject) => {
+                const req = store.put(item);
+                req.onsuccess = resolve; req.onerror = reject;
             });
             return { success: true, newState: item.comprado };
         }
@@ -294,8 +302,14 @@ async function toggleEstadoItemCompra(itemId) {
     }
 }
 
+/**
+ * Renderiza las tareas de Meal Prep.
+ */
 async function renderMealPrep() {
-    if (!mealPrepContainer) return;
+    if (!mealPrepContainer) {
+        mealPrepContainer = document.getElementById('meal-prep-container');
+        if (!mealPrepContainer) { console.error("Contenedor meal-prep-container no encontrado"); return; }
+    }
     mealPrepContainer.innerHTML = '<p class="text-text-light p-4 text-center">Cargando tareas de preparación...</p>';
 
     try {
@@ -310,7 +324,7 @@ async function renderMealPrep() {
 
         mealPrepContainer.innerHTML = '';
         if (todasLasTareas.length === 0) {
-            mealPrepContainer.innerHTML = `<div class="bg-white/50 backdrop-blur-md rounded-xl shadow-lg border border-ui-border/40 p-6 text-center"><p class="text-text-light">No hay tareas de preparación programadas.</p></div>`;
+            mealPrepContainer.innerHTML = `<div class="bg-white/50 backdrop-blur-md rounded-xl shadow-lg border border-ui-border/40 p-6 text-center"><p class="text-text-light">No hay tareas de preparación programadas. ¡Carga datos de ejemplo desde Inicio!</p></div>`;
             return;
         }
 
@@ -326,7 +340,7 @@ async function renderMealPrep() {
         for (const dia of ordenDias) {
             if (tareasAgrupadas[dia] && tareasAgrupadas[dia].length > 0) {
                 const seccionDiaDiv = document.createElement('div');
-                seccionDiaDiv.className = 'bg-white/50 backdrop-blur-lg rounded-xl shadow-xl border border-white/20 p-5 mb-6 hover:shadow-2xl transition-shadow duration-300'; 
+                seccionDiaDiv.className = 'bg-white/50 backdrop-blur-lg rounded-xl shadow-xl border border-white/20 p-5 mb-6 hover:shadow-2xl transition-shadow duration-300';
                 const tituloDia = document.createElement('h3');
                 tituloDia.className = 'text-xl font-semibold text-accent mb-4 pb-2 border-b border-primary/40';
                 tituloDia.textContent = (dia === 'Semanal' || dia === 'General') ? `Preparación ${dia}` : `Para el ${dia}`;
@@ -350,6 +364,9 @@ async function renderMealPrep() {
     }
 }
 
+/**
+ * Cambia el estado de 'completada' de una tarea de Meal Prep.
+ */
 async function toggleEstadoTareaMealPrep(tareaId) {
     try {
         const currentDB = await dbPromise;
@@ -362,8 +379,8 @@ async function toggleEstadoTareaMealPrep(tareaId) {
         });
         if (tarea) {
             tarea.completada = !tarea.completada;
-            await new Promise((resolve, reject) => { 
-                const req = store.put(tarea); req.onsuccess = resolve; req.onerror = reject; 
+            await new Promise((resolve, reject) => {
+                const req = store.put(tarea); req.onsuccess = resolve; req.onerror = reject;
             });
             return { success: true, newState: tarea.completada };
         }
@@ -374,6 +391,9 @@ async function toggleEstadoTareaMealPrep(tareaId) {
     }
 }
 
+/**
+ * Carga datos de ejemplo en la BD.
+ */
 async function loadSampleData() {
     try {
         const currentDB = await dbPromise;
@@ -382,32 +402,16 @@ async function loadSampleData() {
             { id: "sample-arroz-blanco", ingrediente: "Arroz Blanco", cantidad: 2, unidad: "kg", comprado: false },
             { id: "sample-pechuga-pollo", ingrediente: "Pechuga de Pollo", cantidad: 1.5, unidad: "kg", comprado: false },
             { id: "sample-tomates", ingrediente: "Tomates", cantidad: 1, unidad: "kg", comprado: true },
-            { id: "sample-cebolla", ingrediente: "Cebolla", cantidad: 5, unidad: "unidades", comprado: false },
-            { id: "sample-lentejas", ingrediente: "Lentejas", cantidad: 0.5, unidad: "kg", comprado: false },
-            { id: "sample-aceite-oliva", ingrediente: "Aceite de Oliva", cantidad: 1, unidad: "litro", comprado: false },
         ];
-        const sampleRecetas = [ 
-            { id: "rec1-avena-frutas", nombre: "Avena con Frutas Frescas y Nueces", descripcionCorta: "Un desayuno nutritivo y energizante.", porciones: "1", tiempoPrep: "5 min", tiempoCoccion: "5 min", imagenUrl: "images/placeholders/avena-frutas.webp", ingredientes: [{ nombre: "Avena", cantidad: "1/2", unidad: "taza" }, {nombre: "Frutas variadas", cantidad: "1", unidad: "taza"}, {nombre: "Nueces", cantidad: "1/4", unidad: "taza"}], instrucciones: ["Cocinar la avena con agua o leche.", "Cortar las frutas.", "Servir la avena con frutas y nueces."] },
-            { id: "rec2-pollo-ensalada", nombre: "Pollo a la Plancha con Ensalada Verde", descripcionCorta: "Ligero y saludable.", porciones: "1", tiempoPrep: "10 min", tiempoCoccion: "15 min", imagenUrl: "images/placeholders/pollo-ensalada.webp", ingredientes: [{ nombre: "Pechuga de pollo", cantidad: "150", unidad: "g" }], instrucciones: ["Cocinar el pollo a la plancha.", "Preparar la ensalada.", "Servir el pollo sobre la ensalada."] },
-            { id: "rec3-crema-calabacin", nombre: "Crema de Calabacín y Zanahoria", descripcionCorta: "Reconfortante y nutritiva.", porciones: "2", tiempoPrep: "10 min", tiempoCoccion: "20 min", imagenUrl: "images/placeholders/crema-calabacin.webp", ingredientes: [{ nombre: "Calabacín", cantidad: "2", unidad: "unidades" }], instrucciones: ["Sofreír los vegetales.", "Licuar y servir."] },
-            { id: "rec4-lentejas-guisadas", nombre: "Lentejas Guisadas con Vegetales", descripcionCorta: "Plato completo.", porciones: "4", tiempoPrep: "15 min", tiempoCoccion: "45 min", imagenUrl: "images/placeholders/lentejas.webp", ingredientes: [{ nombre: "Lentejas", cantidad: "1", unidad: "taza" }], instrucciones: ["Guisar lentejas con vegetales."] },
-            { id: "rec5-salmon-esparragos", nombre: "Salmón al Horno con Espárragos", descripcionCorta: "Elegante y saludable.", porciones: "2", tiempoPrep: "10 min", tiempoCoccion: "20 min", imagenUrl: "images/placeholders/salmon-esparragos.webp", ingredientes: [{ nombre: "Filete de Salmón", cantidad: "2", unidad: "" }], instrucciones: ["Hornear salmón con espárragos."] },
+        const sampleRecetas = [
+            { id: "rec1-avena-frutas", nombre: "Avena con Frutas Frescas y Nueces", descripcionCorta: "Un desayuno nutritivo.", porciones: "1", tiempoPrep: "5 min", tiempoCoccion: "5 min", imagenUrl: "images/placeholders/avena-frutas.webp", ingredientes: [{ nombre: "Avena", cantidad: "1/2", unidad: "taza" }], instrucciones: ["Cocinar avena.", "Añadir frutas."] },
+            { id: "rec2-pollo-ensalada", nombre: "Pollo a la Plancha con Ensalada", descripcionCorta: "Ligero y saludable.", porciones: "1", tiempoPrep: "10 min", tiempoCoccion: "15 min", imagenUrl: "images/placeholders/pollo-ensalada.webp", ingredientes: [{ nombre: "Pechuga de pollo", cantidad: "150", unidad: "g" }], instrucciones: ["Cocinar pollo.", "Preparar ensalada."] },
         ];
-        
         const samplePlan = [
-            { dia: "lunes", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena con Frutas" }, almuerzo: { id_receta: "rec2-pollo-ensalada", nombre: "Pollo con Ensalada" }, cena: { id_receta: "rec3-crema-calabacin", nombre: "Crema de Calabacín" } },
-            { dia: "martes", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena con Frutas" }, almuerzo: { id_receta: "rec4-lentejas-guisadas", nombre: "Lentejas Guisadas" }, cena: { id_receta: "rec5-salmon-esparragos", nombre: "Salmón con Espárragos" } },
-            { dia: "miércoles", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena con Frutas" }, almuerzo: { id_receta: "rec2-pollo-ensalada", nombre: "Pollo con Ensalada" }, cena: { id_receta: "rec4-lentejas-guisadas", nombre: "Resto de Lentejas" } },
-            { dia: "jueves", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena con Frutas" }, almuerzo: { id_receta: "rec5-salmon-esparragos", nombre: "Resto de Salmón" }, cena: { id_receta: "rec3-crema-calabacin", nombre: "Resto de Crema" } },
-            { dia: "viernes", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena con Frutas" }, almuerzo: { id_receta: "rec2-pollo-ensalada", nombre: "Ensalada con Pollo" }, cena: { id_receta: "rec4-lentejas-guisadas", nombre: "Lentejas" } },
-            { dia: "sábado", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena Especial" }, almuerzo: { id_receta: "rec5-salmon-esparragos", nombre: "Salmón" }, cena: { id_receta: "rec2-pollo-ensalada", nombre: "Cena con Pollo" } },
-            { dia: "domingo", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena Familiar" }, almuerzo: { id_receta: "rec4-lentejas-guisadas", nombre: "Lentejas" }, cena: { id_receta: "rec3-crema-calabacin", nombre: "Sopa" } }
+            { dia: "lunes", desayuno: { id_receta: "rec1-avena-frutas", nombre: "Avena con Frutas" }, almuerzo: { id_receta: "rec2-pollo-ensalada", nombre: "Pollo con Ensalada" }, cena: { id_receta: "rec1-avena-frutas", nombre: "Avena (Cena)" } },
         ];
-
         const sampleMealPrep = [
             { id: 'mp-s1', descripcion: 'Lavar y almacenar hojas verdes.', dia_prep: 'Semanal', completada: false },
-            { id: 'mp-s2', descripcion: 'Cocinar quinoa.', dia_prep: 'Semanal', completada: true },
-            { id: 'mp-d1', descripcion: 'Cortar vegetales para ensaladas.', dia_prep: 'Domingo', completada: false },
         ];
 
         const transaction = currentDB.transaction(['lista_compras', 'plan_semanal', 'meal_prep', 'recetas'], 'readwrite');
@@ -417,7 +421,7 @@ async function loadSampleData() {
             meal_prep: transaction.objectStore('meal_prep'),
             recetas: transaction.objectStore('recetas')
         };
-        
+
         await Promise.all([
             new Promise((res,rej) => { const r = stores.lista_compras.clear(); r.onsuccess = res; r.onerror = rej; }),
             new Promise((res,rej) => { const r = stores.plan_semanal.clear(); r.onsuccess = res; r.onerror = rej; }),
@@ -431,47 +435,53 @@ async function loadSampleData() {
             ...sampleMealPrep.map(t => new Promise((res, rej) => { const r = stores.meal_prep.put(t); r.onsuccess = res; r.onerror = rej; })),
             ...sampleRecetas.map(r_item => new Promise((res, rej) => { const req = stores.recetas.put(r_item); req.onsuccess = res; req.onerror = rej; }))
         ]);
-        
-        alert('Datos de ejemplo cargados con éxito.');
-        
+
+        // COMENTARIO_ESTRATÉGICO: Reemplazar alert con un modal no bloqueante.
+        alert('Datos de ejemplo (Plan, Lista, Meal Prep y Recetas) cargados con éxito.');
+
         const currentFullHash = window.location.hash.substring(1);
         const [currentViewNameForReload] = currentFullHash.split('/');
-        
+
         if (currentViewNameForReload === 'lista-compras') await renderListaCompras();
         else if (currentViewNameForReload === 'plan-semanal') await renderPlanSemanal();
         else if (currentViewNameForReload === 'meal-prep') await renderMealPrep();
 
     } catch (error) {
         console.error("[loadSampleData] Error:", error);
+        // COMENTARIO_ESTRATÉGICO: Reemplazar alert con un modal no bloqueante.
         alert("Error al cargar los datos de ejemplo: " + error.message);
     }
 }
 
+/**
+ * Función principal de la aplicación.
+ */
 async function main() {
     console.log('Iniciando aplicación NutriPlan...');
-    
+
     views = document.querySelectorAll('.view');
+
     loadSampleDataButton = document.getElementById('load-sample-data-button');
     listaComprasContainer = document.getElementById('lista-compras-container');
     currentYearSpan = document.getElementById('current-year');
     planSemanalContainer = document.getElementById('plan-semanal-container');
-    mealPrepContainer = document.getElementById('meal-prep-container'); 
+    mealPrepContainer = document.getElementById('meal-prep-container');
     recetaDetalleContentWrapper = document.getElementById('receta-detalle-content-wrapper');
 
-
-    await router(); 
+    await router();
     window.addEventListener('hashchange', router);
-    
+
     if (loadSampleDataButton) {
         loadSampleDataButton.addEventListener('click', async () => {
             loadSampleDataButton.disabled = true;
+            const originalText = loadSampleDataButton.textContent;
             loadSampleDataButton.textContent = 'Cargando...';
-            await loadSampleData(); 
+            await loadSampleData();
             loadSampleDataButton.disabled = false;
-            loadSampleDataButton.textContent = 'Explorar Plan de Ejemplo';
+            loadSampleDataButton.textContent = originalText;
         });
     }
-    
+
     if (listaComprasContainer) {
         listaComprasContainer.addEventListener('change', async (event) => {
             if (event.target.type === 'checkbox' && event.target.dataset.itemId) {
@@ -480,16 +490,17 @@ async function main() {
                 event.target.disabled = true;
                 const result = await toggleEstadoItemCompra(itemId);
                 if (result.success && listItemElement) {
-                    listItemElement.classList.toggle('opacity-50', result.newState); 
+                    listItemElement.classList.toggle('opacity-50', result.newState);
                     const label = listItemElement.querySelector('label');
                     if (label) {
                         label.classList.toggle('line-through', result.newState);
                         label.classList.toggle('text-text-light', result.newState);
                         label.classList.toggle('text-text-dark', !result.newState);
                     }
-                    event.target.checked = result.newState; 
+                    event.target.checked = result.newState;
                 } else if (!result.success) {
-                    event.target.checked = !event.target.checked; 
+                    event.target.checked = !event.target.checked;
+                     // COMENTARIO_ESTRATÉGICO: Reemplazar alert con un modal no bloqueante.
                     alert('Hubo un error al guardar el cambio: ' + (result.message || 'Error desconocido'));
                 }
                 event.target.disabled = false;
@@ -512,22 +523,23 @@ async function main() {
                         label.classList.toggle('text-text-light', result.newState);
                         label.classList.toggle('text-text-dark', !result.newState);
                     }
-                    event.target.checked = result.newState; 
+                    event.target.checked = result.newState;
                 } else if (!result.success) {
-                    event.target.checked = !event.target.checked; 
+                    event.target.checked = !event.target.checked;
+                    // COMENTARIO_ESTRATÉGICO: Reemplazar alert con un modal no bloqueante.
                     alert('Hubo un error al guardar el cambio: ' + (result.message || 'Error desconocido'));
                 }
                 event.target.disabled = false;
             }
         });
     }
-    
+
     if (currentYearSpan) {
         currentYearSpan.textContent = new Date().getFullYear();
     }
 
     if ('serviceWorker' in navigator) {
-        window.addEventListener('load', async () => { // Esperar a que la página cargue completamente
+        window.addEventListener('load', async () => {
             try {
                 const registration = await navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
                 console.log('[main] SW registrado. Scope:', registration.scope);
@@ -537,7 +549,7 @@ async function main() {
                         installingWorker.onstatechange = () => {
                             if (installingWorker.state === 'installed') {
                                 if (navigator.serviceWorker.controller) {
-                                    console.log('[main] Nuevo Service Worker instalado. Refresca para actualizar.');
+                                    console.log('[main] Nuevo Service Worker instalado. Refresca para actualizar o la app se actualizará en la próxima carga.');
                                 } else {
                                     console.log('[main] Contenido cacheado por Service Worker por primera vez.');
                                 }
@@ -550,7 +562,7 @@ async function main() {
             }
         });
     } else {
-         console.warn('[main] Service Workers no son soportados.');
+         console.warn('[main] Service Workers no son soportados en este navegador.');
     }
     console.log('[main] Inicialización completada.');
 }
