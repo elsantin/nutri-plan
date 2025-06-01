@@ -5,13 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NutriPlan Narváez Yánez</title>
 
-    <meta name="theme-color" content="#A0B2C2"> 
+    <meta name="theme-color" content="#A5D6A7"> 
     <meta name="apple-mobile-web-app-title" content="NutriPlan">
 
+    <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="icon" type="image/png" href="/web-app-manifest-192x192.png" sizes="192x192">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="shortcut icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png"> 
     <link rel="manifest" href="/manifest.json">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -23,16 +22,14 @@
                         sans: ['Inter', 'sans-serif'],
                     },
                     colors: {
-                        'background': '#F8FAFC', 
-                        'text-dark': '#334155',  
-                        'text-light': '#64748B', 
-                        'primary-subtle': '#D1E0D1', 
-                        'secondary-soft': '#EDEAE0', 
-                        'accent-mint': '#76D7C4',      
-                        'accent-coral': '#FAB9A2',     
-                        'accent-sapphire': '#5C9AFF',  
-                        'ui-primary': '#A0B2C2', 
-                        'ui-secondary': '#E2E8F0', 
+                        'background': '#F5F5F2',
+                        'text-dark': '#263A29',
+                        'text-light': '#6B7280',
+                        'primary': '#A5D6A7',
+                        'secondary': '#F0EFE6',
+                        'accent': '#84CC16',
+                        'ui-border': '#D1D5DB',
+                        'glass-border': 'rgba(255, 255, 255, 0.3)',
                     }
                 }
             }
@@ -48,70 +45,67 @@
 
     <div id="app-container" class="min-h-screen flex flex-col">
 
-        <header class="bg-ui-secondary text-text-dark shadow-sm sticky top-0 z-50">
-            <nav class="container mx-auto px-6 md:px-8 py-4 flex justify-between items-center">
-                <h1 id="app-title" class="text-2xl md:text-3xl font-medium text-text-dark cursor-pointer hover:text-accent-mint transition-colors duration-300" data-route="inicio">
-                    NutriPlan
-                </h1>
+        <header class="bg-secondary/80 backdrop-blur-md text-text-dark shadow-sm sticky top-0 z-50 border-b border-ui-border/50">
+            <nav class="container mx-auto px-6 md:px-8 py-3.5 flex justify-between items-center">
+                <a href="#inicio" id="app-title-link" class="cursor-pointer" aria-label="Ir a la página de inicio de NutriPlan">
+                    <img src="images/logo.svg" alt="Logo NutriPlan" class="h-8 md:h-10 w-auto">
+                </a>
+                
                 <div class="space-x-4 md:space-x-6">
-                    <a href="#inicio" class="text-base text-text-light hover:text-accent-mint font-normal pb-1 border-b-2 border-transparent hover:border-accent-mint/50 transition-all duration-300">Inicio</a>
-                    <a href="#plan-semanal" class="text-base text-text-light hover:text-accent-mint font-normal pb-1 border-b-2 border-transparent hover:border-accent-mint/50 transition-all duration-300">Plan Semanal</a>
-                    <a href="#lista-compras" class="text-base text-text-light hover:text-accent-mint font-normal pb-1 border-b-2 border-transparent hover:border-accent-mint/50 transition-all duration-300">Lista de Compras</a>
-                    <a href="#meal-prep" class="text-base text-text-light hover:text-accent-mint font-normal pb-1 border-b-2 border-transparent hover:border-accent-mint/50 transition-all duration-300">Meal Prep</a>
+                    <a href="#inicio" class="text-base text-text-light hover:text-primary font-normal pb-1 border-b-2 border-transparent hover:border-primary/50 transition-all duration-300">Inicio</a>
+                    <a href="#plan-semanal" class="text-base text-text-light hover:text-primary font-normal pb-1 border-b-2 border-transparent hover:border-primary/50 transition-all duration-300">Plan Semanal</a>
+                    <a href="#lista-compras" class="text-base text-text-light hover:text-primary font-normal pb-1 border-b-2 border-transparent hover:border-primary/50 transition-all duration-300">Lista de Compras</a>
+                    <a href="#meal-prep" class="text-base text-text-light hover:text-primary font-normal pb-1 border-b-2 border-transparent hover:border-primary/50 transition-all duration-300">Meal Prep</a>
                 </div>
             </nav>
         </header>
+
         <main id="main-content" class="flex-grow container mx-auto p-4 md:p-6 lg:p-8">
             
             <div id="view-inicio" class="view"> 
-                <div class="text-center py-12 md:py-24">
-                    <h2 class="text-4xl lg:text-5xl font-semibold text-text-dark mb-3 tracking-tight">
+                <div class="text-center py-16 md:py-28 lg:py-32">
+                    <h1 class="text-4xl lg:text-5xl font-medium text-text-dark mb-4 tracking-tight">
                         Bienvenido a NutriPlan
-                    </h2>
-                    <p class="text-lg lg:text-xl text-text-light mb-10 max-w-2xl mx-auto">
+                    </h1>
+                    <p class="text-lg lg:text-xl text-text-light mb-12 max-w-2xl mx-auto leading-relaxed">
                         Tu asistente personal para una alimentación familiar saludable, deliciosa y organizada.
                     </p>
                     <button id="load-sample-data-button" class="
-                        text-white font-semibold py-3 px-10 rounded-lg 
-                        bg-gradient-to-br from-accent-mint via-accent-sapphire to-accent-mint 
-                        hover:shadow-xl
-                        focus:outline-none focus:ring-4 focus:ring-accent-mint focus:ring-opacity-50
-                        transition-all duration-300 ease-in-out
-                        shadow-lg
+                        text-white font-medium py-3.5 px-12 rounded-lg 
+                        bg-accent hover:bg-opacity-85
+                        focus:outline-none focus:ring-4 focus:ring-accent focus:ring-opacity-40 
+                        transition-all duration-200 ease-in-out
+                        shadow-lg hover:shadow-xl 
                         transform hover:scale-105
                     ">
                         Explorar Plan de Ejemplo
                     </button>
                 </div>
             </div>
+
             <div id="view-plan-semanal" class="view hidden">
                 <h2 class="text-3xl font-semibold text-text-dark mb-8 text-center">Plan Semanal</h2>
-                <div id="plan-semanal-container" class="bg-white/50 backdrop-blur-lg p-4 sm:p-6 rounded-xl shadow-xl border border-slate-200/50">
-                    </div>
+                <div id="plan-semanal-container" class="bg-secondary/50 backdrop-blur-lg p-4 sm:p-6 rounded-xl shadow-xl border border-glass-border"></div>
             </div>
             
             <div id="view-receta-detalle" class="view hidden">
                  <h2 class="text-3xl font-semibold text-text-dark mb-8 text-center">Detalle de Receta</h2>
-                <div id="receta-detalle-content-wrapper" class="bg-white/60 backdrop-blur-xl rounded-2xl shadow-2xl p-6 md:p-8 border border-white/30">
-                    <p class="text-text-light text-center">Cargando detalle de la receta...</p>
-                </div>
+                <div id="receta-detalle-content-wrapper" class="bg-secondary/60 backdrop-blur-xl rounded-2xl shadow-2xl p-6 md:p-8 border border-glass-border"></div>
             </div>
             
             <div id="view-lista-compras" class="view hidden">
                 <h2 class="text-3xl font-semibold text-text-dark mb-8 text-center">Lista de Compras</h2>
-                <ul id="lista-compras-container" class="space-y-3 max-w-2xl mx-auto">
-                    </ul>
+                <ul id="lista-compras-container" class="space-y-3 max-w-2xl mx-auto"></ul>
             </div>
 
             <div id="view-meal-prep" class="view hidden">
                 <h2 class="text-3xl font-semibold text-text-dark mb-8 text-center">Preparación de Comidas</h2>
-                <div id="meal-prep-container" class="space-y-6 max-w-3xl mx-auto">
-                    </div>
+                <div id="meal-prep-container" class="space-y-6 max-w-3xl mx-auto"></div>
             </div>
 
             <div id="view-loading" class="view hidden">
                 <div class="flex justify-center items-center h-64">
-                    <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-accent-sapphire"></div>
+                    <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-accent"></div>
                     <p class="ml-4 text-lg text-text-light">Cargando...</p>
                 </div>
             </div>
@@ -127,7 +121,7 @@
         <footer class="bg-text-dark text-background text-center px-6 md:px-8 py-10 mt-auto">
             <p class="text-xs">&copy; <span id="current-year"></span> NutriPlan Narváez Yánez. Todos los derechos reservados.</p>
         </footer>
-        </div>
+    </div>
     <script src="js/app.js" type="module"></script>
 </body>
 </html>

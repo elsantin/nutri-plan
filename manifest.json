@@ -4,25 +4,31 @@
   "description": "Planificador de menú semanal personalizado.",
   "start_url": "/index.html",
   "display": "standalone",
-  "background_color": "#F7F9FC",
-  "theme_color": "#4A90E2",
+  "background_color": "#F5F5F2", 
+  "theme_color": "#A5D6A7",    
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/web-app-manifest-192x192.png",
+      "src": "/images/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/web-app-manifest-512x512.png",
+      "src": "/images/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-        "src": "/apple-touch-icon.png",
-        "sizes": "180x180",
+        "src": "/apple-touch-icon.png", 
+        "sizes": "180x180", 
         "type": "image/png",
         "purpose": "any"
     }
