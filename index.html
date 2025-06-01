@@ -62,10 +62,10 @@
         </header>
 
         <main id="main-content" class="flex-grow">
-            <!-- COMENTARIO_ESTRATÉGICO: Se cambió h-full por flex-grow en #views-wrapper.
-                 #main-content ahora es display:flex y flex-direction:column (ver CSS).
-                 Esto debería hacer que #views-wrapper se expanda para llenar #main-content. -->
-            <div id="views-wrapper" class="relative container mx-auto p-4 md:p-6 lg:p-8 flex-grow">
+            <!-- COMENTARIO_ESTRATÉGICO: #views-wrapper ahora tiene un padding-bottom más generoso (pb-16 o pb-20)
+                 para asegurar que haya espacio para ver la firma del fondo de #main-content.
+                 Se mantiene flex-grow para que ocupe el espacio disponible en #main-content. -->
+            <div id="views-wrapper" class="relative container mx-auto px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-16 md:pb-20 flex-grow">
 
                 <div id="view-inicio" class="view active flex flex-col justify-center items-center text-center">
                     <h1 class="text-4xl lg:text-5xl xl:text-6xl font-medium text-text-dark mb-4 tracking-tight">
@@ -103,6 +103,19 @@
                 <div id="view-lista-compras" class="view">
                     <div class="py-8">
                         <h2 class="text-3xl font-semibold text-text-dark mb-8 text-center">Lista de Compras</h2>
+                        <div class="flex justify-center mb-6">
+                            <button id="generar-receta-ia-button" class="
+                                text-white font-medium py-3 px-8 rounded-lg
+                                bg-gradient-to-r from-green-400 to-lime-500 hover:from-green-500 hover:to-lime-600
+                                focus:outline-none focus:ring-4 focus:ring-lime-300
+                                transition-all duration-200 ease-in-out
+                                shadow-lg hover:shadow-xl
+                                transform hover:scale-105
+                                disabled:opacity-50 disabled:cursor-not-allowed
+                            ">
+                                ✨ Crear Receta con Mis Ingredientes ✨
+                            </button>
+                        </div>
                         <ul id="lista-compras-container" class="space-y-3 max-w-2xl mx-auto"></ul>
                     </div>
                 </div>
@@ -148,6 +161,40 @@
                     </div>
                 </div>
             </div> </main>
+
+        <div id="ia-recipe-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden z-50">
+            <div class="relative mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-xl bg-white">
+                <div class="mt-3 text-center">
+                    <h3 class="text-2xl leading-6 font-medium text-text-dark mb-4" id="ia-recipe-modal-title">Receta Sugerida por IA</h3>
+                    <div id="ia-recipe-modal-content" class="mt-2 px-7 py-3 text-left space-y-4 max-h-[70vh] overflow-y-auto">
+                        <div id="ia-recipe-loading" class="text-center py-4 hidden">
+                            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent mx-auto mb-2"></div>
+                            <p class="text-text-light">✨ Buscando inspiración culinaria...</p>
+                        </div>
+                        <div id="ia-recipe-error" class="text-center py-4 text-red-500 hidden">
+                            <p>Lo sentimos, no se pudo generar una receta en este momento. Por favor, intenta de nuevo.</p>
+                        </div>
+                        <div id="ia-recipe-details" class_name="hidden">
+                        </div>
+                    </div>
+                    <div class="items-center px-4 py-3 mt-4 space-x-4">
+                        <button id="save-ia-recipe-button" class="
+                            px-6 py-2 bg-accent text-white text-base font-medium rounded-md
+                            shadow-sm hover:bg-opacity-85 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent
+                            disabled:opacity-50 hidden
+                        ">
+                            Guardar Receta
+                        </button>
+                        <button id="close-ia-recipe-modal-button" class="
+                            px-6 py-2 bg-gray-200 text-gray-700 text-base font-medium rounded-md
+                            shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400
+                        ">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <footer class="bg-text-dark text-background text-center px-6 md:px-8 py-10 mt-auto">
             <p class="text-xs">&copy; <span id="current-year"></span> NutriPlan Narváez Yánez. Todos los derechos reservados.</p>
